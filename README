@@ -1,0 +1,40 @@
+les
+===
+
+This is a program similar to less. It is written using the terminfo
+library in C. Mostly just as a learning exercise although it might
+have it's use.
+
+Unicode
+=======
+
+The main reason you would need ot handle unicode in a program like
+this is to get the right number of characters on a line.
+
+libc includes wcwidth() and wcswidth() to do the job, but it requires
+you convert your string into a wchar_t string. vim, less, and glib
+opt not to do this, and they maintain the table of character widths
+themselves.
+
+I'm not using the locale's environment variables for finding a good
+default encoding since nl_langinfo(CODESET) might not be supported
+on all OSes and I don't want to parse the LANG, LC_ALL, or LC_CTYPE
+variables. Instead, the program assumes utf-8 as a default and you
+can override the encoding with -f and -t (from and to) command line
+options.
+
+Highlights
+==========
+
+This will highlight all on a page in blue. The one you are up to
+in green. vim and less only search for things in the screen you are
+on for performance reasons. This will find all matches in the buffer
+so I can show the number of matches in the status line. It'll be a
+little bit slower.
+
+Todo
+====
+
+unicode
+windows line endings
+
