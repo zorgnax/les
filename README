@@ -36,6 +36,15 @@ the buffer so I can show the number of matches in the status line.
 It'll be a little bit slower. But it let's me do the search one
 time instead of every time you go down a line.
 
+Improvements Over less
+======================
+
+Word wrap will keep words together. less breaks words at the end of a line even if they could fit on the next line.
+
+when less has word wrap enabled and the last line is longer than can fit on one line and you press j, less will not move to the next line. you have to press j multiple times.
+
+while less is loading the first page, you can not enter keyboard commands.
+
 Todo
 ====
 
@@ -43,4 +52,4 @@ word wrap
 windows line endings
 tab line color should span entire row
 /searching
-
+mousewheel scroll

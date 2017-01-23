@@ -391,10 +391,10 @@ int get_char_width (unsigned int codepoint) {
         {0xe0100, 0xe01ef, 0},
     };
 
-    if (codepoint < 32) {
+    if (codepoint < 0x20) {
         return 0;
     }
-    else if (codepoint < 127) {
+    else if (codepoint < 0x7f) {
         return 1;
     }
 
@@ -460,7 +460,7 @@ void get_char_info (charinfo_t *cinfo, char *buf) {
     cinfo->width = get_char_width(codepoint);
 }
 
-void print_tab () {
+void print_tab_nowrap () {
     int line1 = 1;
     if (tabs_len == 1) {
         line1 = 0;
@@ -484,25 +484,121 @@ void print_tab () {
             }
         }
         if (c == '\n' || i + cinfo.len == tabb->buf_len) {
+            if (line == lines - line1 - 2) {
+                break;
+            }
             printf("\n");
             column = 0;
             line++;
-            if (line == lines - line1 - 1) {
-                if (c == '\n' || column >= columns) {
-                    tabb->screen_filled = 1;
-                    break;
-                }
-            }
         }
         else {
             column += cinfo.width;
         }
         i += cinfo.len;
     }
+
+    if (line == lines - line1 - 2) {
+        tabb->screen_filled = 1;
+    }
     for (i = line; i < lines - line1 - 1; i++) {
         printf("%s\n", clr_eol);
     }
     printf("Hello %ld", time(NULL));
+}
+
+void print_tab_wrap () {
+    int line1 = 1;
+    if (tabs_len == 1) {
+        line1 = 0;
+    }
+    char *str = tparm(cursor_address, line1, 0);
+    printf("%s", str);
+    tab_t *tabb = tabs[current_tab];
+    int i, j;
+    int line = 0;
+    int column = 0;
+    charinfo_t cinfo1, cinfo2;
+    for (i = tabb->pos; i < tabb->buf_len;) {
+        unsigned char c1 = tabb->buf[i];
+        if (c1 == '\n') {
+            i++;
+            if (line == lines - line1 - 2) {
+                break;
+            }
+            printf("\n");
+            column = 0;
+            line++;
+            continue;
+        }
+
+        get_char_info(&cinfo1, tabb->buf + i);
+        int whitespace1 = c1 == ' ' || c1 == '\t';
+
+        // Get the word starting at byte i to byte j
+        int width = cinfo1.width;
+        for (j = i + cinfo1.len; j < tabb->buf_len;) {
+            unsigned char c2 = tabb->buf[j];
+            if (c2 == '\n') {
+                break;
+            }
+            int whitespace2 = c2 == ' ' || c2 == '\t';
+            if (whitespace1 ^ whitespace2) {
+                break;
+            }
+            get_char_info(&cinfo2, tabb->buf + j);
+            width += cinfo2.width;
+            j += cinfo2.len;
+        }
+
+        if (column + width <= columns) {
+            printf("%.*s", j - i, tabb->buf + i);
+            column += width;
+        }
+        else if (width <= columns) {
+            if (line == lines - line1 - 2) {
+                break;
+            }
+            printf("\n%.*s", j - i, tabb->buf + i);
+            column = width;
+            line++;
+        }
+        else {
+            int k;
+            for (k = 0; k < j - i;) {
+                get_char_info(&cinfo2, tabb->buf + i + k);
+                if (column >= columns) {
+                    if (line == lines - line1 - 2) {
+                        goto end;
+                    }
+                    printf("\n");
+                    column = 0;
+                    line++;
+                }
+                printf("%.*s", cinfo2.len, tabb->buf + i + k);
+                column += cinfo2.width;
+                k += cinfo2.len;
+            }
+        }
+        i = j;
+    }
+
+    end:
+    if (line == lines - line1 - 2) {
+        tabb->screen_filled = 1;
+    }
+    for (i = line; i < lines - line1 - 1; i++) {
+        printf("%s\n", clr_eol);
+    }
+    printf("HELLO %ld", time(NULL));
+}
+
+void print_tab () {
+    if (line_wrap) {
+        print_tab_wrap();
+    }
+    else {
+        print_tab_nowrap();
+    }
 }
 
 void add_encoded_input (char *buf, size_t buf_len) {
@@ -660,10 +756,11 @@ void read_loop () {
 
 void usage () {
     printf(
-        "Usage: les [-h] [-e=encoding] file...\n"
+        "Usage: les [-hw] [-e=encoding] file...\n"
         "\n"
         "-e=encoding     input file encoding (affects all inputs)\n"
         "-h              help text\n"
+        "-w              disable line wrap\n"
     );
 }
 
@@ -680,6 +777,7 @@ void parse_args (int argc, char **argv) {
     struct option longopts[] = {
         {"e", required_argument, NULL, 'e'},
         {"h", no_argument, NULL, 'h'},
+        {"w", no_argument, NULL, 'w'},
         {NULL, 0, NULL, 0}
     };
 
@@ -692,6 +790,9 @@ void parse_args (int argc, char **argv) {
         case 'h':
             usage();
             exit(0);
+        case 'w':
+            line_wrap = 0;
+            break;
         default:
             usage();
             exit(1);
