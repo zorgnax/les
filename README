@@ -2,7 +2,7 @@ les
 ===
 
 This is a program similar to less. It is written in C using the
-terminfo, and iconv libraries.
+terminfo and iconv libraries.
 
 Unicode
 =======
@@ -48,8 +48,14 @@ while less is loading the first page, you can not enter keyboard commands.
 Todo
 ====
 
-word wrap
+tcsetattr
 windows line endings
 tab line color should span entire row
 /searching
 mousewheel scroll
+correct screen width when input has ansi color codes
+show status line percent through file as a colored portion of a bar
+clear to end of line each line you output
+winch signal
+define tabb globally
+

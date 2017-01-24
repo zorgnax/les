@@ -8,7 +8,6 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/select.h>
-#include <time.h>
 #include <iconv.h>
 #include <getopt.h>
 
@@ -23,6 +22,8 @@ typedef struct {
     size_t pos;
     int loaded;
     int screen_filled;
+    int tline;
+    int tlines;
 } tab_t;
 
 typedef struct {
@@ -47,10 +48,13 @@ int tty;
 int line_wrap = 1;
 char *input_encoding = NULL;
 iconv_t cd = NULL;
+char *status_buf;
+size_t status_buf_size;
+size_t status_buf_len;
 
 void bye () {
     printf("%s", cursor_normal);
-    // printf("%s", exit_ca_mode);
+    printf("%s", exit_ca_mode);
     exit(0);
 }
 
@@ -66,6 +70,8 @@ void add_tab (const char *name, int fd) {
     tabb->screen_filled = 0;
     tabb->stragglers = malloc(16);
     tabb->stragglers_len = 0;
+    tabb->tline = 1;
+    tabb->tlines = 0;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -416,7 +422,7 @@ int get_char_width (unsigned int codepoint) {
     return 1;
 }
 
-void get_char_info (charinfo_t *cinfo, char *buf) {
+void get_char_info (charinfo_t *cinfo, const char *buf) {
     char c = buf[0];
     cinfo->error = 0;
     if ((c & 0x80) == 0x00) {
@@ -500,10 +506,81 @@ void print_tab_nowrap () {
     if (line == lines - line1 - 2) {
         tabb->screen_filled = 1;
     }
+    if (column >= columns) {
+        printf("\n");
+        line++;
+    }
     for (i = line; i < lines - line1 - 1; i++) {
         printf("%s\n", clr_eol);
     }
-    printf("Hello %ld", time(NULL));
+}
+
+char *human_readable (double size) {
+    static char buf[50];
+    static char power[] = "BKMGTPEZY";
+    int i;
+    for (i = 0; i < sizeof power / sizeof power[0]; i++) {
+        if (size < 1024)
+            break;
+        size /= 1024;
+    }
+    int hundredths = (int)(size * 100) % 100;
+    if (hundredths) {
+        snprintf(buf, sizeof buf, "%.2f%c", size, power[i]);
+    }
+    else {
+        snprintf(buf, sizeof buf, "%.0f%c", size, power[i]);
+    }
+    return buf;
+}
+
+// After displaying the tab you will be in the correct position to
+// write the status, otherwise you will have to call this before
+// print_status.
+void position_status () {
+    char *str = tparm(cursor_address, lines - 1, 0);
+    printf("%s", str);
+}
+
+void print_status () {
+    static char right_buf[256];
+    tab_t *tabb = tabs[current_tab];
+
+    char *hrsize = human_readable(tabb->buf_len);
+    int right_len = snprintf(right_buf, sizeof right_buf, " %d/%d %s", tabb->tline, tabb->tlines, hrsize);
+    int right = columns - right_len;
+
+    int width = 0;
+    int i;
+    charinfo_t cinfo;
+    status_buf_len = 0;
+    for (i = 0; i < status_buf_size;) {
+        if (!tabb->name[i]) {
+            break;
+        }
+        if (width >= right) {
+            break;
+        }
+        get_char_info(&cinfo, tabb->name + i);
+        memcpy(status_buf + i, tabb->name + i, cinfo.len);
+        status_buf_len += cinfo.len;
+        width += cinfo.width;
+        i += cinfo.len;
+    }
+
+    for (; width < right && i < status_buf_size; i++) {
+        status_buf[i] = ' ';
+        status_buf_len++;
+        width++;
+    }
+
+    int j;
+    for (j = 0; j < right_len && i < status_buf_size; j++, i++) {
+        status_buf[i] = right_buf[j];
+        status_buf_len++;
+    }
+
+    printf("%.*s", (int) status_buf_len, status_buf);
 }
 
 void print_tab_wrap () {
@@ -586,10 +663,13 @@ void print_tab_wrap () {
     if (line == lines - line1 - 2) {
         tabb->screen_filled = 1;
     }
+    if (column >= columns) {
+        printf("\n");
+        line++;
+    }
     for (i = line; i < lines - line1 - 1; i++) {
         printf("%s\n", clr_eol);
     }
-    printf("HELLO %ld", time(NULL));
 }
 
 void print_tab () {
@@ -598,6 +678,17 @@ void print_tab () {
     }
     else {
         print_tab_nowrap();
+    }
+    print_status();
+}
+
+void process_input (char *buf, size_t len) {
+    tab_t *tabb = tabs[current_tab];
+    int i;
+    for (i = 0; i < len; i++) {
+        if (buf[i] == '\n') {
+            tabb->tlines++;
+        }
     }
 }
 
@@ -610,8 +701,9 @@ void add_encoded_input (char *buf, size_t buf_len) {
         tabb->buf_size = 1024;
         tabb->buf = malloc(tabb->buf_size);
     }
-    size_t tabb_buf_left = tabb->buf_size;
-    char *tabb_buf_ptr = tabb->buf;
+    size_t tabb_buf_left = tabb->buf_size - tabb->buf_len;
+    char *tabb_buf_ptr = tabb->buf + tabb->buf_len;
+    size_t tabb_buf_len_orig = tabb->buf_len;
 
     while (1) {
         size_t tabb_buf_left_orig = tabb_buf_left;
@@ -641,6 +733,7 @@ void add_encoded_input (char *buf, size_t buf_len) {
         }
         break;
     }
+    process_input(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
 }
 
 #define UTF8_LENGTH(c)       \
@@ -680,6 +773,7 @@ void add_unencoded_input (char *buf, size_t buf_len) {
         }
         i += len;
     }
+    process_input(tabb->buf + tabb->buf_len - i, i);
 }
 
 void read_file () {
@@ -708,7 +802,11 @@ void read_file () {
     else {
         add_unencoded_input(buf, nread);
     }
-    if (!tabb->screen_filled) {
+    if (tabb->screen_filled) {
+        position_status();
+        print_status();
+    }
+    else {
         print_tab();
     }
 }
@@ -837,8 +935,12 @@ int main (int argc, char **argv) {
 
     atexit(bye);
     signal(SIGINT, bye);
-    // printf("%s", enter_ca_mode);
-    // printf("%s", cursor_invisible);
+    printf("%s", enter_ca_mode);
+    printf("%s", cursor_invisible);
+
+    status_buf_size = columns * 6;
+    status_buf_len = 0;
+    status_buf = malloc(status_buf_size);
 
     print_tabs();
     print_tab();
