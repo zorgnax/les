@@ -44,18 +44,36 @@ size_t tabs_len = 0;
 size_t tabs_size = 0;
 tab_t **tabs;
 int current_tab = 0;
-int tty;
 int line_wrap = 1;
 char *input_encoding = NULL;
 iconv_t cd = NULL;
 char *status_buf;
 size_t status_buf_size;
 size_t status_buf_len;
+int tty;
+struct termios tcattr1, tcattr2;
+char ttybuf[256];
+size_t ttybuf_len = 0;
+size_t ttybuf_width = 0;
 
 void bye () {
+    tcsetattr(tty, TCSANOW, &tcattr1);
     printf("%s", cursor_normal);
     printf("%s", exit_ca_mode);
     exit(0);
+}
+
+void set_tcattr () {
+    tcattr2 = tcattr1;
+    tcattr2.c_lflag &= ~(ICANON|ECHO);
+    tcattr2.c_cc[VMIN] = 1;
+    tcattr2.c_cc[VTIME] = 0;
+    tcsetattr(tty, TCSAFLUSH, &tcattr2);
+}
+
+void cont () {
+    signal(SIGCONT, cont);
+    set_tcattr();
 }
 
 void add_tab (const char *name, int fd) {
@@ -545,10 +563,22 @@ void position_status () {
 void print_status () {
     static char right_buf[256];
     tab_t *tabb = tabs[current_tab];
+    int retval;
 
+    int right_len = 0;
+    int right_width = 0;
+    if (ttybuf_len) {
+        retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
+            " %.*s", (int) ttybuf_len, ttybuf);
+        right_len += retval;
+        right_width += ttybuf_width + 1;
+    }
     char *hrsize = human_readable(tabb->buf_len);
-    int right_len = snprintf(right_buf, sizeof right_buf, " %d/%d %s", tabb->tline, tabb->tlines, hrsize);
-    int right = columns - right_len;
+    retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
+        " %d/%d %s", tabb->tline, tabb->tlines, hrsize);
+    right_len += retval;
+    right_width += retval;
+    int right = columns - right_width;
 
     int width = 0;
     int i;
@@ -811,12 +841,102 @@ void read_file () {
     }
 }
 
+void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
+    if (cinfo->width) {
+        memcpy(ttybuf, buf, cinfo->len);
+        ttybuf_len = cinfo->len;
+        ttybuf_width = cinfo->width;
+    }
+    else {
+        int i;
+        ttybuf_len = 0;
+        ttybuf_width = 0;
+        for (i = 0; i < len; i++) {
+            if (buf[i] < 0x20) {
+                snprintf(ttybuf + ttybuf_len, sizeof ttybuf - ttybuf_len,
+                    "^%c", 0x40 + buf[i]);
+                ttybuf_len += 2;
+                ttybuf_width += 2;
+            }
+            else {
+                ttybuf[ttybuf_len] = buf[i];
+                ttybuf_len++;
+                ttybuf_width++;
+            }
+        }
+    }
+}
+
+int process_terminal_input (char *buf, int len) {
+    charinfo_t cinfo;
+    get_char_info(&cinfo, buf);
+    set_ttybuf(&cinfo, buf, len);
+    tab_t *tabb = tabs[current_tab];
+    int extended = 0;
+    switch (buf[0]) {
+        case 'j':
+            tabb->pos += 100;
+            print_tab();
+            break;
+        case 'k':
+            tabb->pos -= 100;
+            print_tab();
+            break;
+        case 'q':
+            bye();
+            exit(1);
+            break;
+        case 'w':
+            line_wrap = !line_wrap;
+            print_tab();
+            break;
+        default:
+            extended = 1;
+    }
+    if (!extended) {
+        return 1;
+    }
+    if (strncmp(buf, "\e[B", 3) == 0) {
+        tabb->pos += 100;
+        print_tab();
+    }
+    else if (strncmp(buf, "\e[A", 3) == 0) {
+        tabb->pos -= 100;
+        print_tab();
+    }
+    else {
+        position_status();
+        print_status();
+    }
+    if (cinfo.width) {
+        return cinfo.len;
+    }
+    return len;
+}
+
+void read_terminal () {
+    char buf[256];
+    int nread = read(tty, buf, sizeof buf);
+    if (nread < 0 && errno != EAGAIN) {
+        perror("read");
+        exit(1);
+    }
+    if (nread == 0) {
+        bye();
+        exit(1);
+    }
+    int i;
+    for (i = 0; i < nread;) {
+        int plen = process_terminal_input(buf + i, nread - i);
+        i += plen;
+    }
+}
+
 void read_loop () {
     fd_set fds;
     tab_t *tabb;
     int nfds;
     int i;
-    char buf[256];
     for (i = 0;; i++) {
         tabb = tabs[current_tab];
         FD_ZERO(&fds);
@@ -836,18 +956,7 @@ void read_loop () {
             read_file();
         }
         if (FD_ISSET(tty, &fds)) {
-            int retval = read(tty, buf, sizeof buf);
-            if (retval < 0 && errno != EAGAIN) {
-                perror("read");
-                exit(1);
-            }
-            if (retval == 0) {
-                bye();
-            }
-            else {
-                bye();
-                printf("Keyboard input is: %.*s\n", retval, buf);
-            }
+            read_terminal();
         }
     }
 }
@@ -935,8 +1044,15 @@ int main (int argc, char **argv) {
 
     atexit(bye);
     signal(SIGINT, bye);
+    signal(SIGQUIT, bye);
+    signal(SIGCONT, cont);
+
     printf("%s", enter_ca_mode);
     printf("%s", cursor_invisible);
+
+    tty = open("/dev/tty", O_RDONLY);
+    tcgetattr(tty, &tcattr1);
+    set_tcattr();
 
     status_buf_size = columns * 6;
     status_buf_len = 0;
@@ -944,8 +1060,6 @@ int main (int argc, char **argv) {
 
     print_tabs();
     print_tab();
-
-    tty = open("/dev/tty", O_RDONLY);
 
     read_loop();
     return 0;

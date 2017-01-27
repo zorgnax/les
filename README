@@ -48,7 +48,8 @@ while less is loading the first page, you can not enter keyboard commands.
 Todo
 ====
 
-tcsetattr
+8 character tabs
+clear to eol each line that's output
 windows line endings
 tab line color should span entire row
 /searching
