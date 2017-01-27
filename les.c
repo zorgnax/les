@@ -44,6 +44,7 @@ size_t tabs_len = 0;
 size_t tabs_size = 0;
 tab_t **tabs;
 int current_tab = 0;
+tab_t *tabb;
 int line_wrap = 1;
 char *input_encoding = NULL;
 iconv_t cd = NULL;
@@ -491,7 +492,6 @@ void print_tab_nowrap () {
     }
     char *str = tparm(cursor_address, line1, 0);
     printf("%s", str);
-    tab_t *tabb = tabs[current_tab];
     int i;
     int line = 0;
     int column = 0;
@@ -510,6 +510,9 @@ void print_tab_nowrap () {
         if (c == '\n' || i + cinfo.len == tabb->buf_len) {
             if (line == lines - line1 - 2) {
                 break;
+            }
+            if (column < columns) {
+                printf("%s", clr_eol);
             }
             printf("\n");
             column = 0;
@@ -562,7 +565,6 @@ void position_status () {
 
 void print_status () {
     static char right_buf[256];
-    tab_t *tabb = tabs[current_tab];
     int retval;
 
     int right_len = 0;
@@ -620,7 +622,6 @@ void print_tab_wrap () {
     }
     char *str = tparm(cursor_address, line1, 0);
     printf("%s", str);
-    tab_t *tabb = tabs[current_tab];
     int i, j;
     int line = 0;
     int column = 0;
@@ -631,6 +632,9 @@ void print_tab_wrap () {
             i++;
             if (line == lines - line1 - 2) {
                 break;
+            }
+            if (column < columns) {
+                printf("%s", clr_eol);
             }
             printf("\n");
             column = 0;
@@ -664,6 +668,9 @@ void print_tab_wrap () {
         else if (width <= columns) {
             if (line == lines - line1 - 2) {
                 break;
+            }
+            if (column < columns) {
+                printf("%s", clr_eol);
             }
             printf("\n%.*s", j - i, tabb->buf + i);
             column = width;
@@ -712,8 +719,7 @@ void print_tab () {
     print_status();
 }
 
-void process_input (char *buf, size_t len) {
-    tab_t *tabb = tabs[current_tab];
+void count_lines (char *buf, size_t len) {
     int i;
     for (i = 0; i < len; i++) {
         if (buf[i] == '\n') {
@@ -726,7 +732,6 @@ void add_encoded_input (char *buf, size_t buf_len) {
     char *buf_ptr = buf;
     size_t buf_left = buf_len;
 
-    tab_t *tabb = tabs[current_tab];
     if (tabb->buf_size == 0) {
         tabb->buf_size = 1024;
         tabb->buf = malloc(tabb->buf_size);
@@ -763,7 +768,7 @@ void add_encoded_input (char *buf, size_t buf_len) {
         }
         break;
     }
-    process_input(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
+    count_lines(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
 }
 
 #define UTF8_LENGTH(c)       \
@@ -777,9 +782,8 @@ void add_encoded_input (char *buf, size_t buf_len) {
                          6
 
 // Makes sure buffer only contains whole utf-8 characters, if any
-// are incomplete then they are stored in stragglers array
+// are incomplete then they are stored in the stragglers array
 void add_unencoded_input (char *buf, size_t buf_len) {
-    tab_t *tabb = tabs[current_tab];
     if (tabb->buf_size - tabb->buf_len < buf_len) {
         if (tabb->buf_size == 0) {
             tabb->buf_size = 1024;
@@ -803,12 +807,11 @@ void add_unencoded_input (char *buf, size_t buf_len) {
         }
         i += len;
     }
-    process_input(tabb->buf + tabb->buf_len - i, i);
+    count_lines(tabb->buf + tabb->buf_len - i, i);
 }
 
 void read_file () {
     char buf[1024];
-    tab_t *tabb = tabs[current_tab];
     if (tabb->stragglers_len) {
         memcpy(buf, tabb->stragglers, tabb->stragglers_len);
     }
@@ -867,20 +870,49 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
     }
 }
 
-int process_terminal_input (char *buf, int len) {
+void move_forward (int n) {
+    int i;
+    int j = 0;
+    for (i = tabb->pos; i < tabb->buf_len - 1; i++) {
+        if (tabb->buf[i] == '\n') {
+            j++;
+            if (j == n) {
+                tabb->pos = i + 1;
+                break;
+            }
+        }
+    }
+    print_tab();
+}
+
+void move_backward (int n) {
+    int i;
+    int j = 0;
+    for (i = tabb->pos - 1; i >= 0; i--) {
+        if (i == 0) {
+            tabb->pos = 0;
+        }
+        else if (tabb->buf[i] == '\n') {
+            j++;
+            if (j == n + 1) {
+                tabb->pos = i + 1;
+                break;
+            }
+        }
+    }
+    print_tab();
+}
+int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf);
     set_ttybuf(&cinfo, buf, len);
-    tab_t *tabb = tabs[current_tab];
     int extended = 0;
     switch (buf[0]) {
         case 'j':
-            tabb->pos += 100;
-            print_tab();
+            move_forward(1);
             break;
         case 'k':
-            tabb->pos -= 100;
-            print_tab();
+            move_backward(1);
             break;
         case 'q':
             bye();
@@ -897,12 +929,10 @@ int process_terminal_input (char *buf, int len) {
         return 1;
     }
     if (strncmp(buf, "\e[B", 3) == 0) {
-        tabb->pos += 100;
-        print_tab();
+        move_forward(1);
     }
     else if (strncmp(buf, "\e[A", 3) == 0) {
-        tabb->pos -= 100;
-        print_tab();
+        move_backward(1);
     }
     else {
         position_status();
@@ -927,18 +957,16 @@ void read_terminal () {
     }
     int i;
     for (i = 0; i < nread;) {
-        int plen = process_terminal_input(buf + i, nread - i);
+        int plen = read_key(buf + i, nread - i);
         i += plen;
     }
 }
 
 void read_loop () {
     fd_set fds;
-    tab_t *tabb;
     int nfds;
     int i;
     for (i = 0;; i++) {
-        tabb = tabs[current_tab];
         FD_ZERO(&fds);
         FD_SET(tty, &fds);
         if (tabb->loaded) {
@@ -1034,6 +1062,7 @@ int main (int argc, char **argv) {
     }
 
     parse_args(argc, argv);
+    tabb = tabs[current_tab];
 
     int retval = 0;
     char *term = getenv("TERM");
