@@ -48,7 +48,7 @@ while less is loading the first page, you can not enter keyboard commands.
 Todo
 ====
 
-8 character tabs
+8 character tabs (use the it terminfo parameter)
 clear to eol each line that's output
 windows line endings
 tab line color should span entire row
@@ -59,4 +59,6 @@ show status line percent through file as a colored portion of a bar
 clear to end of line each line you output
 winch signal
 define tabb globally
-
+may have to do everything with scrolling for speed purposes
+next/prev function (C like or Perl like)
+next/prev if/for/while

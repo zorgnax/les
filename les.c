@@ -870,13 +870,88 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
     }
 }
 
+void move_forward_wrap (int n) {
+    charinfo_t cinfo1, cinfo2;
+    unsigned char c1, c2;
+    int i, j;
+    int column = 0;
+    int line = 0;
+    for (i = tabb->pos; i < tabb->buf_len - 1;) {
+        c1 = tabb->buf[i];
+        if (c1 == '\n') {
+            i++;
+            line++;
+            column = 0;
+            if (line == n) {
+                tabb->pos = i;
+                break;
+            }
+            continue;
+        }
+
+        get_char_info(&cinfo1, tabb->buf + i);
+        int whitespace1 = c1 == ' ' || c1 == '\t';
+
+        // Get the word starting at byte i to byte j
+        int width = cinfo1.width;
+        for (j = i + cinfo1.len; j < tabb->buf_len;) {
+            c2 = tabb->buf[j];
+            if (c2 == '\n') {
+                break;
+            }
+            int whitespace2 = c2 == ' ' || c2 == '\t';
+            if (whitespace1 ^ whitespace2) {
+                break;
+            }
+            get_char_info(&cinfo2, tabb->buf + j);
+            width += cinfo2.width;
+            j += cinfo2.len;
+        }
+
+        if (column + width <= columns) {
+            column += width;
+        }
+        else if (width <= columns) {
+            line++;
+            column = width;
+            if (line == n) {
+                tabb->pos = i;
+                break;
+            }
+        }
+        else {
+            int k;
+            for (k = 0; k < j - i;) {
+                get_char_info(&cinfo2, tabb->buf + i + k);
+                if (column >= columns) {
+                    line++;
+                    column = 0;
+                    if (line == n) {
+                        tabb->pos = i + k;
+                        goto end;
+                    }
+                }
+                column += cinfo2.width;
+                k += cinfo2.len;
+            }
+        }
+        i = j;
+    }
+    end:
+    print_tab();
+}
+
 void move_forward (int n) {
+    if (line_wrap) {
+        move_forward_wrap(n);
+        return;
+    }
     int i;
-    int j = 0;
+    int line = 0;
     for (i = tabb->pos; i < tabb->buf_len - 1; i++) {
         if (tabb->buf[i] == '\n') {
-            j++;
-            if (j == n) {
+            line++;
+            if (line == n) {
                 tabb->pos = i + 1;
                 break;
             }
@@ -885,16 +960,128 @@ void move_forward (int n) {
     print_tab();
 }
 
+void move_backward_wrap (int n) {
+    charinfo_t cinfo1, cinfo2;
+    unsigned char c1, c2;
+    int i, j, k, l;
+    int column = 0;
+    int line = 0;
+    for (i = tabb->pos; i >= 0;) {
+        if (i == 0) {
+            tabb->pos = 0;
+            break;
+        }
+        // Get the start of the character before i
+        for (j = i - 1; j >= 0; j--) {
+            c1 = tabb->buf[j];
+            if (!((c1 & 0xc0) == 0x80)) {
+                break;
+            }
+        }
+        if (c1 == '\n') {
+            line++;
+            if (line == n + 1) {
+                tabb->pos = i;
+                break;
+            }
+            column = 0;
+            i--;
+            continue;
+        }
+        else if (i == tabb->pos) {
+            line++;
+        }
+
+        int whitespace1 = c1 == ' ' || c1 == '\t';
+        int width = 0;
+
+        // Get the word starting at byte k to byte i (not including i)
+        for (k = i - 1; k >= 0; k--) {
+            // Put k at the start of the character
+            c2 = tabb->buf[k];
+            while ((c2 & 0xc0) == 0x80) {
+                k--;
+                c2 = tabb->buf[k];
+            }
+            if (c2 == '\n') {
+                k++;
+                break;
+            }
+            get_char_info(&cinfo2, tabb->buf + k);
+            int whitespace2 = c2 == ' ' || c2 == '\t';
+            if (whitespace1 ^ whitespace2) {
+                k += cinfo2.len;
+                break;
+            }
+            width += cinfo2.width;
+            if (k == 0) {
+                break;
+            }
+        }
+
+        if (column + width <= columns) {
+            column += width;
+        }
+        else if (width <= columns) {
+            line++;
+            column = width;
+            if (line == n + 1) {
+                tabb->pos = i;
+                break;
+            }
+        }
+        else {
+            for (k = i - 1; k >= 0; k--) {
+                c2 = tabb->buf[k];
+                while ((c2 & 0xc0) == 0x80) {
+                    k--;
+                    c2 = tabb->buf[k];
+                }
+                if (c2 == '\n') {
+                    k++;
+                    break;
+                }
+                get_char_info(&cinfo2, tabb->buf + k);
+                int whitespace2 = c2 == ' ' || c2 == '\t';
+                if (whitespace1 ^ whitespace2) {
+                    k += cinfo2.len;
+                    break;
+                }
+                column += cinfo2.width;
+                if (column >= columns) {
+                    line++;
+                    column = 0;
+                    if (line == n + 1) {
+                        tabb->pos = k;
+                        goto end;
+                    }
+                }
+                if (k == 0) {
+                    break;
+                }
+            }
+        }
+        i = k;
+    }
+    end:
+    print_tab();
+}
+
 void move_backward (int n) {
+    if (line_wrap) {
+        move_backward_wrap(n);
+        return;
+    }
     int i;
-    int j = 0;
+    int line = 0;
     for (i = tabb->pos - 1; i >= 0; i--) {
         if (i == 0) {
             tabb->pos = 0;
+            break;
         }
-        else if (tabb->buf[i] == '\n') {
-            j++;
-            if (j == n + 1) {
+        if (tabb->buf[i] == '\n') {
+            line++;
+            if (line == n + 1) {
                 tabb->pos = i + 1;
                 break;
             }
@@ -902,17 +1089,41 @@ void move_backward (int n) {
     }
     print_tab();
 }
+
+void move_end () {
+    if (tabb->tlines < lines) {
+        tabb->pos = 0;
+        print_tab();
+        return;
+    }
+    tabb->pos = tabb->buf_len - 1;
+    move_backward(lines - 1);
+}
+
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf);
     set_ttybuf(&cinfo, buf, len);
     int extended = 0;
     switch (buf[0]) {
+        case 'g':
+            tabb->pos = 0;
+            print_tab();
+            break;
+        case 'G':
+            move_end();
+            break;
         case 'j':
             move_forward(1);
             break;
+        case 'J':
+            move_forward(2);
+            break;
         case 'k':
             move_backward(1);
+            break;
+        case 'K':
+            move_backward(2);
             break;
         case 'q':
             bye();
@@ -993,9 +1204,18 @@ void usage () {
     printf(
         "Usage: les [-hw] [-e=encoding] file...\n"
         "\n"
-        "-e=encoding     input file encoding (affects all inputs)\n"
-        "-h              help text\n"
-        "-w              disable line wrap\n"
+        "Options:\n"
+        "    -e=encoding   input file encoding (affects all inputs)\n"
+        "    -h            help text\n"
+        "    -w            disable line wrap\n"
+        "\n"
+        "Key Binds:\n"
+        "    g             go to the top of the buffer\n"
+        "    G             go to the bottom of the buffer\n"
+        "    j,↓           go down one line\n"
+        "    k,↑           go up one line\n"
+        "    q             quit\n"
+        "    w             toggle line wrap\n"
     );
 }
 
