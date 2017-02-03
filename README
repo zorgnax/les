@@ -58,7 +58,12 @@ correct screen width when input has ansi color codes
 show status line percent through file as a colored portion of a bar
 clear to end of line each line you output
 winch signal
-define tabb globally
 may have to do everything with scrolling for speed purposes
 next/prev function (C like or Perl like)
 next/prev if/for/while
+first calculate where your lines are at then draw the tab
+clear line before writing it to avoid having to know width of line or clear tab section entirely before writing it
+Movements should be best effort, if you ask for 10 lines and only have 5, move 5 lines
+possibly keep bottom on screen even if the user requested to scroll past it
+left/right scrolling
+

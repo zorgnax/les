@@ -56,9 +56,11 @@ struct termios tcattr1, tcattr2;
 char ttybuf[256];
 size_t ttybuf_len = 0;
 size_t ttybuf_width = 0;
+int line1;
 
 void bye () {
     tcsetattr(tty, TCSANOW, &tcattr1);
+    printf("%s", tparm(change_scroll_region, 0, lines - 1));
     printf("%s", cursor_normal);
     printf("%s", exit_ca_mode);
     exit(0);
@@ -103,7 +105,7 @@ void add_tab (const char *name, int fd) {
     tabs_len++;
 }
 
-void print_tabs () {
+void draw_tabs () {
     if (tabs_len == 1) {
         return;
     }
@@ -485,13 +487,7 @@ void get_char_info (charinfo_t *cinfo, const char *buf) {
     cinfo->width = get_char_width(codepoint);
 }
 
-void print_tab_nowrap () {
-    int line1 = 1;
-    if (tabs_len == 1) {
-        line1 = 0;
-    }
-    char *str = tparm(cursor_address, line1, 0);
-    printf("%s", str);
+void draw_tab_nowrap () {
     int i;
     int line = 0;
     int column = 0;
@@ -557,13 +553,13 @@ char *human_readable (double size) {
 
 // After displaying the tab you will be in the correct position to
 // write the status, otherwise you will have to call this before
-// print_status.
+// draw_status.
 void position_status () {
     char *str = tparm(cursor_address, lines - 1, 0);
     printf("%s", str);
 }
 
-void print_status () {
+void draw_status () {
     static char right_buf[256];
     int retval;
 
@@ -615,40 +611,53 @@ void print_status () {
     printf("%.*s", (int) status_buf_len, status_buf);
 }
 
-void print_tab_wrap () {
-    int line1 = 1;
-    if (tabs_len == 1) {
-        line1 = 0;
-    }
-    char *str = tparm(cursor_address, line1, 0);
-    printf("%s", str);
-    int i, j;
-    int line = 0;
-    int column = 0;
+void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
+                     size_t **wlines_ret, size_t *wlines_len_ret) {
+    static size_t *wlines = NULL;
+    static size_t wlines_len = 0;
+    static size_t wlines_size = 0;
+    int i, j, k;
+    unsigned char c1, c2;
+    int whitespace1, whitespace2;
     charinfo_t cinfo1, cinfo2;
-    for (i = tabb->pos; i < tabb->buf_len;) {
-        unsigned char c1 = tabb->buf[i];
+    int column = 0;
+    int width;
+
+    if (!wlines_size) {
+        wlines_size = 64;
+        wlines = malloc(wlines_size * sizeof (size_t));
+    }
+    wlines[0] = pos;
+    wlines_len = 1;
+    if (pos == buf_len) {
+        *wlines_ret = wlines;
+        *wlines_len_ret = wlines_len;
+        return;
+    }
+    for (i = pos; i < buf_len;) {
+        c1 = buf[i];
+
         if (c1 == '\n') {
             i++;
-            if (line == lines - line1 - 2) {
+            if (wlines_size < wlines_len + 1) {
+                wlines_size *= 2;
+                wlines = realloc(wlines, wlines_size * sizeof (size_t));
+            }
+            wlines[wlines_len] = i;
+            wlines_len++;
+            column = 0;
+            if (max && wlines_len > max) {
                 break;
             }
-            if (column < columns) {
-                printf("%s", clr_eol);
-            }
-            printf("\n");
-            column = 0;
-            line++;
             continue;
         }
 
-        get_char_info(&cinfo1, tabb->buf + i);
-        int whitespace1 = c1 == ' ' || c1 == '\t';
-
         // Get the word starting at byte i to byte j
-        int width = cinfo1.width;
-        for (j = i + cinfo1.len; j < tabb->buf_len;) {
-            unsigned char c2 = tabb->buf[j];
+        get_char_info(&cinfo1, buf + i);
+        whitespace1 = c1 == ' ' || c1 == '\t';
+        width = cinfo1.width;
+        for (j = i + cinfo1.len; j < buf_len;) {
+            unsigned char c2 = buf[j];
             if (c2 == '\n') {
                 break;
             }
@@ -656,67 +665,105 @@ void print_tab_wrap () {
             if (whitespace1 ^ whitespace2) {
                 break;
             }
-            get_char_info(&cinfo2, tabb->buf + j);
+            get_char_info(&cinfo2, buf + j);
             width += cinfo2.width;
             j += cinfo2.len;
         }
 
+        // width of the word fits on the line
         if (column + width <= columns) {
-            printf("%.*s", j - i, tabb->buf + i);
             column += width;
+            i = j;
+            continue;
         }
-        else if (width <= columns) {
-            if (line == lines - line1 - 2) {
+
+        // it doesn't fit on this line, but would fit on a line by itself
+        if (width <= columns) {
+            if (wlines_size < wlines_len + 1) {
+                wlines_size *= 2;
+                wlines = realloc(wlines, wlines_size * sizeof (size_t));
+            }
+            wlines[wlines_len] = i;
+            wlines_len++;
+            if (max && wlines_len > max) {
                 break;
             }
-            if (column < columns) {
-                printf("%s", clr_eol);
-            }
-            printf("\n%.*s", j - i, tabb->buf + i);
             column = width;
-            line++;
+            i = j;
+            continue;
         }
-        else {
-            int k;
-            for (k = 0; k < j - i;) {
-                get_char_info(&cinfo2, tabb->buf + i + k);
-                if (column >= columns) {
-                    if (line == lines - line1 - 2) {
-                        goto end;
-                    }
-                    printf("\n");
-                    column = 0;
-                    line++;
+
+	// wouldn't fit on a line by itself, so display as much as
+	// you can on this line, then more on the next line
+        for (k = 0; k < j - i;) {
+            get_char_info(&cinfo2, buf + i + k);
+            if (column + cinfo2.width > columns) {
+                if (wlines_size < wlines_len + 1) {
+                    wlines_size *= 2;
+                    wlines = realloc(wlines, wlines_size * sizeof (size_t));
                 }
-                printf("%.*s", cinfo2.len, tabb->buf + i + k);
-                column += cinfo2.width;
-                k += cinfo2.len;
+                wlines[wlines_len] = i + k;
+                wlines_len++;
+                if (max && wlines_len > max) {
+                    goto end;
+                }
+                column = 0;
             }
+            column += cinfo2.width;
+            k += cinfo2.len;
         }
         i = j;
     }
 
     end:
-    if (line == lines - line1 - 2) {
+    if ((!max || wlines_len <= max) && wlines[wlines_len - 1] != buf_len) {
+        if (wlines_size < wlines_len + 1) {
+            wlines_size *= 2;
+            wlines = realloc(wlines, wlines_size * sizeof (size_t));
+        }
+        wlines[wlines_len] = buf_len;
+        wlines_len++;
+    }
+    *wlines_ret = wlines;
+    *wlines_len_ret = wlines_len;
+}
+
+void draw_tab_wrap () {
+    int i;
+    int len;
+    size_t *wlines;
+    size_t wlines_len;
+
+    get_wrap_lines(tabb->buf, tabb->buf_len, tabb->pos, lines - line1 - 1,
+                   &wlines, &wlines_len);
+    for (i = 0; i < lines - line1 - 1; i++) {
+        printf("%s", clr_eol);
+        if (i < wlines_len - 1) {
+            len = wlines[i + 1] - wlines[i];
+            printf("%.*s", len, tabb->buf + wlines[i]);
+            if (!len || tabb->buf[wlines[i] + len - 1] != '\n') {
+                printf("\n");
+            }
+        }
+        else {
+            printf("\n");
+        }
+    }
+    if (wlines_len - 1 == lines - line1 - 1) {
         tabb->screen_filled = 1;
-    }
-    if (column >= columns) {
-        printf("\n");
-        line++;
-    }
-    for (i = line; i < lines - line1 - 1; i++) {
-        printf("%s\n", clr_eol);
     }
 }
 
-void print_tab () {
+void draw_tab () {
+    char *str = tparm(cursor_address, line1, 0);
+    printf("%s", str);
     if (line_wrap) {
-        print_tab_wrap();
+        draw_tab_wrap();
     }
     else {
-        print_tab_nowrap();
+        draw_tab_nowrap();
     }
-    print_status();
+    draw_status();
 }
 
 void count_lines (char *buf, size_t len) {
@@ -837,10 +884,10 @@ void read_file () {
     }
     if (tabb->screen_filled) {
         position_status();
-        print_status();
+        draw_status();
     }
     else {
-        print_tab();
+        draw_tab();
     }
 }
 
@@ -870,230 +917,98 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
     }
 }
 
-void move_forward_wrap (int n) {
-    charinfo_t cinfo1, cinfo2;
-    unsigned char c1, c2;
-    int i, j;
-    int column = 0;
-    int line = 0;
-    for (i = tabb->pos; i < tabb->buf_len - 1;) {
-        c1 = tabb->buf[i];
-        if (c1 == '\n') {
-            i++;
-            line++;
-            column = 0;
-            if (line == n) {
-                tabb->pos = i;
-                break;
-            }
-            continue;
-        }
-
-        get_char_info(&cinfo1, tabb->buf + i);
-        int whitespace1 = c1 == ' ' || c1 == '\t';
-
-        // Get the word starting at byte i to byte j
-        int width = cinfo1.width;
-        for (j = i + cinfo1.len; j < tabb->buf_len;) {
-            c2 = tabb->buf[j];
-            if (c2 == '\n') {
-                break;
-            }
-            int whitespace2 = c2 == ' ' || c2 == '\t';
-            if (whitespace1 ^ whitespace2) {
-                break;
-            }
-            get_char_info(&cinfo2, tabb->buf + j);
-            width += cinfo2.width;
-            j += cinfo2.len;
-        }
-
-        if (column + width <= columns) {
-            column += width;
-        }
-        else if (width <= columns) {
-            line++;
-            column = width;
-            if (line == n) {
-                tabb->pos = i;
-                break;
-            }
-        }
-        else {
-            int k;
-            for (k = 0; k < j - i;) {
-                get_char_info(&cinfo2, tabb->buf + i + k);
-                if (column >= columns) {
-                    line++;
-                    column = 0;
-                    if (line == n) {
-                        tabb->pos = i + k;
-                        goto end;
-                    }
-                }
-                column += cinfo2.width;
-                k += cinfo2.len;
-            }
-        }
-        i = j;
-    }
-    end:
-    print_tab();
-}
-
-void move_forward (int n) {
-    if (line_wrap) {
-        move_forward_wrap(n);
-        return;
-    }
+int next_line (int n) {
     int i;
     int line = 0;
     for (i = tabb->pos; i < tabb->buf_len - 1; i++) {
         if (tabb->buf[i] == '\n') {
             line++;
             if (line == n) {
-                tabb->pos = i + 1;
-                break;
+                return i + 1;
             }
         }
     }
-    print_tab();
+    return tabb->pos;
 }
 
-void move_backward_wrap (int n) {
-    charinfo_t cinfo1, cinfo2;
-    unsigned char c1, c2;
-    int i, j, k, l;
-    int column = 0;
-    int line = 0;
-    for (i = tabb->pos; i >= 0;) {
-        if (i == 0) {
-            tabb->pos = 0;
-            break;
-        }
-        // Get the start of the character before i
-        for (j = i - 1; j >= 0; j--) {
-            c1 = tabb->buf[j];
-            if (!((c1 & 0xc0) == 0x80)) {
-                break;
-            }
-        }
-        if (c1 == '\n') {
-            line++;
-            if (line == n + 1) {
-                tabb->pos = i;
-                break;
-            }
-            column = 0;
-            i--;
-            continue;
-        }
-        else if (i == tabb->pos) {
-            line++;
-        }
-
-        int whitespace1 = c1 == ' ' || c1 == '\t';
-        int width = 0;
-
-        // Get the word starting at byte k to byte i (not including i)
-        for (k = i - 1; k >= 0; k--) {
-            // Put k at the start of the character
-            c2 = tabb->buf[k];
-            while ((c2 & 0xc0) == 0x80) {
-                k--;
-                c2 = tabb->buf[k];
-            }
-            if (c2 == '\n') {
-                k++;
-                break;
-            }
-            get_char_info(&cinfo2, tabb->buf + k);
-            int whitespace2 = c2 == ' ' || c2 == '\t';
-            if (whitespace1 ^ whitespace2) {
-                k += cinfo2.len;
-                break;
-            }
-            width += cinfo2.width;
-            if (k == 0) {
-                break;
-            }
-        }
-
-        if (column + width <= columns) {
-            column += width;
-        }
-        else if (width <= columns) {
-            line++;
-            column = width;
-            if (line == n + 1) {
-                tabb->pos = i;
-                break;
-            }
-        }
-        else {
-            for (k = i - 1; k >= 0; k--) {
-                c2 = tabb->buf[k];
-                while ((c2 & 0xc0) == 0x80) {
-                    k--;
-                    c2 = tabb->buf[k];
-                }
-                if (c2 == '\n') {
-                    k++;
-                    break;
-                }
-                get_char_info(&cinfo2, tabb->buf + k);
-                int whitespace2 = c2 == ' ' || c2 == '\t';
-                if (whitespace1 ^ whitespace2) {
-                    k += cinfo2.len;
-                    break;
-                }
-                column += cinfo2.width;
-                if (column >= columns) {
-                    line++;
-                    column = 0;
-                    if (line == n + 1) {
-                        tabb->pos = k;
-                        goto end;
-                    }
-                }
-                if (k == 0) {
-                    break;
-                }
-            }
-        }
-        i = k;
-    }
-    end:
-    print_tab();
-}
-
-void move_backward (int n) {
-    if (line_wrap) {
-        move_backward_wrap(n);
-        return;
-    }
+int prev_line (int n) {
     int i;
     int line = 0;
-    for (i = tabb->pos - 1; i >= 0; i--) {
-        if (i == 0) {
-            tabb->pos = 0;
-            break;
-        }
+    if (tabb->pos == 0) {
+        return 0;
+    }
+    for (i = tabb->pos - 1; i > 0; i--) {
         if (tabb->buf[i] == '\n') {
             line++;
             if (line == n + 1) {
-                tabb->pos = i + 1;
-                break;
+                return i + 1;
             }
         }
     }
-    print_tab();
+    return i;
+}
+
+void move_forward (int n) {
+    if (line_wrap) {
+        size_t *wlines;
+        size_t wlines_len;
+        get_wrap_lines(tabb->buf, tabb->buf_len, tabb->pos, n,
+                   &wlines, &wlines_len);
+        if (wlines[wlines_len - 1] == tabb->buf_len) {
+            return;
+        }
+        tabb->pos = wlines[wlines_len - 1];
+    }
+    else {
+        int next = next_line(n);
+        if (next == tabb->pos) {
+            return;
+        }
+        tabb->pos = next;
+    }
+    draw_tab();
+}
+
+void move_backward (int n) {
+    int prev;
+    int i;
+    if (line_wrap) {
+        size_t *wlines;
+        size_t wlines_len;
+        for (i = 0; i < n;) {
+            get_wrap_lines(tabb->buf, tabb->pos, prev_line(1), 0,
+                           &wlines, &wlines_len);
+            if (wlines_len == 1) {
+                break;
+            }
+            if (n - i <= wlines_len - 1) {
+                tabb->pos = wlines[wlines_len - 1 - (n - i)];
+                i += n - i;
+                break;
+            }
+            else {
+                tabb->pos = wlines[0];
+                i += wlines_len - 1;
+            }
+        }
+        if (i == 0) {
+            return;
+        }
+    }
+    else {
+        prev = prev_line(n);
+        if (prev == tabb->pos) {
+            return;
+        }
+        tabb->pos = prev;
+    }
+    draw_tab();
 }
 
 void move_end () {
     if (tabb->tlines < lines) {
         tabb->pos = 0;
-        print_tab();
+        draw_tab();
         return;
     }
     tabb->pos = tabb->buf_len - 1;
@@ -1106,9 +1021,12 @@ int read_key (char *buf, int len) {
     set_ttybuf(&cinfo, buf, len);
     int extended = 0;
     switch (buf[0]) {
+        case 'd':
+            move_forward((lines - line1 - 1) / 2);
+            break;
         case 'g':
             tabb->pos = 0;
-            print_tab();
+            draw_tab();
             break;
         case 'G':
             move_end();
@@ -1129,9 +1047,12 @@ int read_key (char *buf, int len) {
             bye();
             exit(1);
             break;
+        case 'u':
+            move_backward((lines - line1 - 1) / 2);
+            break;
         case 'w':
             line_wrap = !line_wrap;
-            print_tab();
+            draw_tab();
             break;
         default:
             extended = 1;
@@ -1147,7 +1068,7 @@ int read_key (char *buf, int len) {
     }
     else {
         position_status();
-        print_status();
+        draw_status();
     }
     if (cinfo.width) {
         return cinfo.len;
@@ -1210,11 +1131,13 @@ void usage () {
         "    -w            disable line wrap\n"
         "\n"
         "Key Binds:\n"
+        "    d             go down half a screen full\n"
         "    g             go to the top of the buffer\n"
         "    G             go to the bottom of the buffer\n"
         "    j,↓           go down one line\n"
         "    k,↑           go up one line\n"
         "    q             quit\n"
+        "    u             go up half a screen full\n"
         "    w             toggle line wrap\n"
     );
 }
@@ -1272,6 +1195,12 @@ void parse_args (int argc, char **argv) {
         fprintf(stderr, "No files\n");
         exit(1);
     }
+    if (tabs_len == 1) {
+        line1 = 0;
+    }
+    else {
+        line1 = 1;
+    }
 }
 
 int main (int argc, char **argv) {
@@ -1297,7 +1226,7 @@ int main (int argc, char **argv) {
     signal(SIGCONT, cont);
 
     printf("%s", enter_ca_mode);
-    printf("%s", cursor_invisible);
+    //printf("%s", cursor_invisible);
 
     tty = open("/dev/tty", O_RDONLY);
     tcgetattr(tty, &tcattr1);
@@ -1307,8 +1236,8 @@ int main (int argc, char **argv) {
     status_buf_len = 0;
     status_buf = malloc(status_buf_size);
 
-    print_tabs();
-    print_tab();
+    draw_tabs();
+    draw_tab();
 
     read_loop();
     return 0;
