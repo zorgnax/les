@@ -66,4 +66,8 @@ clear line before writing it to avoid having to know width of line or clear tab 
 Movements should be best effort, if you ask for 10 lines and only have 5, move 5 lines
 possibly keep bottom on screen even if the user requested to scroll past it
 left/right scrolling
-
+end_pos needs to be correct after move_backward
+q closes one tab only, Q closes all
+help text in a browsable tab
+file browser
+shorten file names in tabs till they all fit on one line, at last resort do "1 2 3 4 5", if more than that "file1 file2 ..." maybe.
