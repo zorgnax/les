@@ -23,8 +23,8 @@ typedef struct {
     size_t end_pos;
     int loaded;
     int screen_filled;
-    int tline;
-    int tlines;
+    int line;
+    int nlines;
 } tab_t;
 
 typedef struct {
@@ -93,8 +93,8 @@ void add_tab (const char *name, int fd) {
     tabb->screen_filled = 0;
     tabb->stragglers = malloc(16);
     tabb->stragglers_len = 0;
-    tabb->tline = 1;
-    tabb->tlines = 0;
+    tabb->line = 1;
+    tabb->nlines = 1;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -575,7 +575,7 @@ void draw_status () {
     }
     char *hrsize = human_readable(tabb->buf_len);
     retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
-        " %lu -> %lu %d/%d %s", tabb->pos, tabb->end_pos, tabb->tline, tabb->tlines, hrsize);
+        " %lu -> %lu %d/%d %s", tabb->pos, tabb->end_pos, tabb->line, tabb->nlines, hrsize);
     right_len += retval;
     right_width += retval;
     int right = columns - right_width;
@@ -614,10 +614,12 @@ void draw_status () {
 }
 
 void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
-                     size_t **wlines_ret, size_t *wlines_len_ret) {
+                     size_t **wlines_ret, size_t *wlines_len_ret,
+                     size_t *lines_len_ret) {
     static size_t *wlines = NULL;
     static size_t wlines_len = 0;
     static size_t wlines_size = 0;
+    size_t lines_len = 0;
     int i, j, k;
     unsigned char c1, c2;
     int whitespace1, whitespace2;
@@ -647,6 +649,7 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
             }
             wlines[wlines_len] = i;
             wlines_len++;
+            lines_len++;
             column = 0;
             if (max && wlines_len > max) {
                 break;
@@ -728,6 +731,7 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
     }
     *wlines_ret = wlines;
     *wlines_len_ret = wlines_len;
+    *lines_len_ret = lines_len;
 }
 
 void draw_tab_wrap (int n, size_t pos) {
@@ -735,8 +739,9 @@ void draw_tab_wrap (int n, size_t pos) {
     int len;
     size_t *wlines;
     size_t wlines_len;
+    size_t lines_len;
 
-    get_wrap_lines(tabb->buf, tabb->buf_len, pos, n, &wlines, &wlines_len);
+    get_wrap_lines(tabb->buf, tabb->buf_len, pos, n, &wlines, &wlines_len, &lines_len);
     for (i = 0; i < n; i++) {
         printf("%s", clr_eol);
         if (i < wlines_len - 1) {
@@ -775,7 +780,7 @@ void count_lines (char *buf, size_t len) {
     int i;
     for (i = 0; i < len; i++) {
         if (buf[i] == '\n') {
-            tabb->tlines++;
+            tabb->nlines++;
         }
     }
 }
@@ -952,7 +957,7 @@ int prev_line (char *buf, size_t len, size_t pos, int n, int *m) {
         return 0;
     }
     for (i = pos - 1; i > 0; i--) {
-        if (buf[i] == '\n') {
+        if (buf[i] == '\n' || i == len - 1) {
             line++;
             pos2 = i + 1;
             if (line == n + 1) {
@@ -971,8 +976,9 @@ void move_forward (int n) {
     if (line_wrap) {
         size_t *wlines;
         size_t wlines_len;
+        size_t lines_len;
         get_wrap_lines(tabb->buf, tabb->buf_len, tabb->pos, n,
-                   &wlines, &wlines_len);
+                   &wlines, &wlines_len, &lines_len);
         if (wlines[wlines_len - 1] == tabb->buf_len) {
             if (wlines_len <= 2) {
                 return;
@@ -983,10 +989,12 @@ void move_forward (int n) {
             m = wlines_len - 1;
         }
         tabb->pos = wlines[m];
+        tabb->line += lines_len;
     }
     else {
         int next = next_line(tabb->buf, tabb->buf_len, tabb->pos, n, &m);
         tabb->pos = next;
+        tabb->line += m;
     }
     if (!m) {
         return;
@@ -1005,21 +1013,27 @@ void move_forward (int n) {
 
 // returns the nth previous line. if word wrap is active, then those
 // lines are word wrapped lines. if there aren't n lines available it
-// does as much as possible. the actual number of lines previous is
-// returned in m.
-int prev_line2 (char *buf, size_t len, size_t pos, int n, int *m) {
+// does as much as possible. the actual number of wrapped lines
+// previous is returned in m. the actual number of lines previous
+// is returned in m2.
+int prev_line2 (char *buf, size_t len, size_t pos, int n, int *m, int *m2) {
     int i, t;
     size_t pos2;
+    *m = 0;
+    *m2 = 0;
     if (pos == 0) {
-        *m = 0;
         return 0;
     }
     if (line_wrap) {
         size_t *wlines;
         size_t wlines_len;
+        size_t lines_len;
+        if (buf[pos - 1] == '\n') {
+            (*m2)++;
+        }
         for (i = 0; i < n;) {
             get_wrap_lines(buf, pos, prev_line(buf, len, pos, 1, &t), 0,
-                           &wlines, &wlines_len);
+                           &wlines, &wlines_len, &lines_len);
             if (wlines_len == 1) {
                 break;
             }
@@ -1031,6 +1045,7 @@ int prev_line2 (char *buf, size_t len, size_t pos, int n, int *m) {
             else {
                 pos = wlines[0];
                 i += wlines_len - 1;
+                (*m2)++;
             }
         }
         pos2 = pos;
@@ -1038,13 +1053,15 @@ int prev_line2 (char *buf, size_t len, size_t pos, int n, int *m) {
     }
     else {
         pos2 = prev_line(buf, len, pos, n, m);
+        *m2 = *m;
     }
     return pos2;
 }
 
 void move_backward (int n) {
-    int m, t;
-    tabb->pos = prev_line2(tabb->buf, tabb->buf_len, tabb->pos, n, &m);
+    int m, m2, t, t2;
+    tabb->pos = prev_line2(tabb->buf, tabb->buf_len, tabb->pos, n, &m, &m2);
+    tabb->line -= m2;
     if (!m) {
         return;
     }
@@ -1053,7 +1070,7 @@ void move_backward (int n) {
         printf("%s", tparm(cursor_address, line1, 0));
         printf("%s", tparm(parm_rindex, m));
         draw_tab2(m, tabb->pos);
-        tabb->end_pos = prev_line2(tabb->buf, tabb->buf_len, end_pos, m, &t);
+        tabb->end_pos = prev_line2(tabb->buf, tabb->buf_len, end_pos, m, &t, &t2);
         position_status();
         draw_status();
     }
@@ -1063,13 +1080,15 @@ void move_backward (int n) {
 }
 
 void move_end () {
-    if (tabb->tlines < lines) {
+    if (tabb->nlines < lines) {
         tabb->pos = 0;
+        tabb->line = 1;
         draw_tab();
         return;
     }
-    tabb->pos = tabb->buf_len - 1;
-    move_backward(lines - 1);
+    tabb->pos = tabb->buf_len;
+    tabb->line = tabb->nlines;
+    move_backward(lines - line1 - 1);
 }
 
 int read_key (char *buf, int len) {
@@ -1089,6 +1108,7 @@ int read_key (char *buf, int len) {
             break;
         case 'g':
             tabb->pos = 0;
+            tabb->line = 1;
             draw_tab();
             break;
         case 'G':
@@ -1301,7 +1321,7 @@ int main (int argc, char **argv) {
     status_buf_len = 0;
     status_buf = malloc(status_buf_size);
 
-    printf("%s", tparm(change_scroll_region, line1, lines - line1 - 1));
+    printf("%s", tparm(change_scroll_region, line1, lines - 1));
 
     draw_tabs();
     draw_tab();
