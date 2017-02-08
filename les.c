@@ -24,6 +24,7 @@ typedef struct {
     int loaded;
     int screen_filled;
     int line;
+    int end_line;
     int nlines;
 } tab_t;
 
@@ -94,6 +95,7 @@ void add_tab (const char *name, int fd) {
     tabb->stragglers = malloc(16);
     tabb->stragglers_len = 0;
     tabb->line = 1;
+    tabb->end_line = 1;
     tabb->nlines = 1;
     if (tabs_size == 0) {
         tabs_size = 4;
@@ -523,6 +525,7 @@ void draw_tab_nowrap (int n, size_t pos) {
     }
 
     tabb->end_pos = i;
+    tabb->end_line = line;
     if (line == n - 1) {
         tabb->screen_filled = 1;
     }
@@ -756,6 +759,7 @@ void draw_tab_wrap (int n, size_t pos) {
         }
     }
     tabb->end_pos = wlines[wlines_len - 1];
+    tabb->end_line = wlines_len - 1;
     if (wlines_len - 1 == n) {
         tabb->screen_filled = 1;
     }
@@ -1003,7 +1007,9 @@ void move_forward (int n) {
         printf("%s", cursor_up);
         printf("%s", tparm(parm_index, m));
         printf("%s", tparm(cursor_address, lines - 1 - m, 0));
+        int end_line = tabb->end_line;
         draw_tab2(m, tabb->end_pos);
+        tabb->end_line = end_line - m + tabb->end_line;
         draw_status();
     }
     else {
@@ -1059,18 +1065,27 @@ int prev_line2 (char *buf, size_t len, size_t pos, int n, int *m, int *m2) {
 }
 
 void move_backward (int n) {
-    int m, m2, t, t2;
+    int m, m2, m3, t, t2;
     tabb->pos = prev_line2(tabb->buf, tabb->buf_len, tabb->pos, n, &m, &m2);
     tabb->line -= m2;
     if (!m) {
         return;
     }
-    size_t end_pos = tabb->end_pos;
-    if (m < lines - line1 - 1 && end_pos < tabb->buf_len) {
+    if (m < lines - line1 - 1) {
         printf("%s", tparm(cursor_address, line1, 0));
         printf("%s", tparm(parm_rindex, m));
+        int end_line = tabb->end_line;
+        size_t end_pos = tabb->end_pos;
         draw_tab2(m, tabb->pos);
-        tabb->end_pos = prev_line2(tabb->buf, tabb->buf_len, end_pos, m, &t, &t2);
+        tabb->end_line = end_line + m;
+        if (tabb->end_line > lines - line1 - 1) {
+            tabb->end_line = lines - line1 - 1;
+        }
+        tabb->end_pos = end_pos;
+        m3 = m - (lines - line1 - 1 - end_line);
+        if (m3 > 0) {
+            tabb->end_pos = prev_line2(tabb->buf, tabb->buf_len, end_pos, m3, &t, &t2);
+        }
         position_status();
         draw_status();
     }
@@ -1089,6 +1104,42 @@ void move_end () {
     tabb->pos = tabb->buf_len;
     tabb->line = tabb->nlines;
     move_backward(lines - line1 - 1);
+}
+
+void next_tab () {
+    current_tab = (current_tab + 1) % tabs_len;
+    tabb = tabs[current_tab];
+    draw_tabs();
+    draw_tab();
+}
+
+void prev_tab () {
+    current_tab = current_tab > 0 ? (current_tab - 1) : (tabs_len - 1);
+    tabb = tabs[current_tab];
+    draw_tabs();
+    draw_tab();
+}
+
+void close_tab () {
+    if (tabs_len == 1) {
+        bye();
+        exit(0);
+        return;
+    }
+    tab_t *tabb2 = tabb;
+    int i;
+    for (i = current_tab; i < tabs_len - 1; i++) {
+        tabs[i] = tabs[i + 1];
+    }
+    tabs_len--;
+    if (current_tab == tabs_len) {
+        current_tab--;
+    }
+    tabb = tabs[current_tab];
+    // TODO free tabb2
+    // set line1 if we have to
+    draw_tabs();
+    draw_tab();
 }
 
 int read_key (char *buf, int len) {
@@ -1127,8 +1178,17 @@ int read_key (char *buf, int len) {
             move_backward(2);
             break;
         case 'q':
+            close_tab();
+            break;
+        case 'Q':
             bye();
-            exit(1);
+            exit(0);
+            break;
+        case 't':
+            next_tab();
+            break;
+        case 'T':
+            prev_tab();
             break;
         case 'u':
             move_backward((lines - line1 - 1) / 2);
@@ -1311,7 +1371,7 @@ int main (int argc, char **argv) {
     signal(SIGCONT, cont);
 
     printf("%s", enter_ca_mode);
-    //printf("%s", cursor_invisible);
+    printf("%s", cursor_invisible);
 
     tty = open("/dev/tty", O_RDONLY);
     tcgetattr(tty, &tcattr1);

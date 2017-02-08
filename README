@@ -41,33 +41,25 @@ Improvements Over less
 
 Word wrap will keep words together. less breaks words at the end of a line even if they could fit on the next line.
 
-when less has word wrap enabled and the last line is longer than can fit on one line and you press j, less will not move to the next line. you have to press j multiple times.
+Wometimes when less is word wrapped you have to press j multiple times to go down one wrapped line.
 
-while less is loading the first page, you can not enter keyboard commands.
+While less is loading the first page, you can not enter keyboard commands.
 
 Todo
 ====
 
 8 character tabs (use the it terminfo parameter)
-clear to eol each line that's output
 windows line endings
 tab line color should span entire row
 /searching
 mousewheel scroll
 correct screen width when input has ansi color codes
 show status line percent through file as a colored portion of a bar
-clear to end of line each line you output
 winch signal
-may have to do everything with scrolling for speed purposes
-next/prev function (C like or Perl like)
+next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
-first calculate where your lines are at then draw the tab
-clear line before writing it to avoid having to know width of line or clear tab section entirely before writing it
-Movements should be best effort, if you ask for 10 lines and only have 5, move 5 lines
-possibly keep bottom on screen even if the user requested to scroll past it
 left/right scrolling
-end_pos needs to be correct after move_backward
-q closes one tab only, Q closes all
 help text in a browsable tab
 file browser
 shorten file names in tabs till they all fit on one line, at last resort do "1 2 3 4 5", if more than that "file1 file2 ..." maybe.
+get the line number right for short files (possibly does it end in a new line or not?)
