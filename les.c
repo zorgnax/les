@@ -10,9 +10,12 @@
 #include <sys/select.h>
 #include <iconv.h>
 #include <getopt.h>
+#include <libgen.h>
 
 typedef struct {
     const char *name;
+    int name_width;
+    char *name2;
     int fd;
     char *buf;
     size_t buf_size;
@@ -59,83 +62,6 @@ char ttybuf[256];
 size_t ttybuf_len = 0;
 size_t ttybuf_width = 0;
 int line1;
-
-void bye () {
-    tcsetattr(tty, TCSANOW, &tcattr1);
-    printf("%s", tparm(change_scroll_region, 0, lines - 1));
-    printf("%s", cursor_normal);
-    printf("%s", exit_ca_mode);
-    exit(0);
-}
-
-void set_tcattr () {
-    tcattr2 = tcattr1;
-    tcattr2.c_lflag &= ~(ICANON|ECHO);
-    tcattr2.c_cc[VMIN] = 1;
-    tcattr2.c_cc[VTIME] = 0;
-    tcsetattr(tty, TCSAFLUSH, &tcattr2);
-}
-
-void cont () {
-    signal(SIGCONT, cont);
-    set_tcattr();
-}
-
-void add_tab (const char *name, int fd) {
-    tab_t *tabb = malloc(sizeof (tab_t));
-    tabb->name = name;
-    tabb->fd = fd;
-    tabb->pos = 0;
-    tabb->end_pos = 0;
-    tabb->loaded = 0;
-    tabb->buf = NULL;
-    tabb->buf_len = 0;
-    tabb->buf_size = 0;
-    tabb->screen_filled = 0;
-    tabb->stragglers = malloc(16);
-    tabb->stragglers_len = 0;
-    tabb->line = 1;
-    tabb->end_line = 1;
-    tabb->nlines = 1;
-    if (tabs_size == 0) {
-        tabs_size = 4;
-        tabs = malloc(tabs_size * sizeof (tab_t *));
-    }
-    else if (tabs_len == tabs_size) {
-        tabs_size *= 2;
-        tabs = realloc(tabs, tabs_size * sizeof (tab_t *));
-    }
-    tabs[tabs_len] = tabb;
-    tabs_len++;
-}
-
-void draw_tabs () {
-    if (tabs_len == 1) {
-        return;
-    }
-    char *str = tparm(cursor_address, 0, 0);
-    printf("%s", str);
-    str = tparm(set_a_background, 232 + 2);
-    printf("%s", str);
-    int i;
-    for (i = 0; i < tabs_len; i++) {
-        if (i == current_tab) {
-            printf("%s", enter_bold_mode);
-            printf("%s", tabs[i]->name);
-            printf("%s", exit_attribute_mode);
-            str = tparm(set_a_background, 232 + 2);
-            printf("%s", str);
-        }
-        else {
-            printf("%s", tabs[i]->name);
-        }
-        if (i < tabs_len - 1) {
-            printf("  ");
-        }
-    }
-    printf("%s", exit_attribute_mode);
-    printf("\n");
-}
 
 int get_char_width (unsigned int codepoint) {
     static width_range_t width_ranges[] = {
@@ -489,6 +415,168 @@ void get_char_info (charinfo_t *cinfo, const char *buf) {
     }
     cinfo->codepoint = codepoint;
     cinfo->width = get_char_width(codepoint);
+}
+
+int strwidth (const char *str) {
+    int i, width = 0;
+    charinfo_t cinfo;
+    for (i = 0; str[i];) {
+        get_char_info(&cinfo, str + i);
+        width += cinfo.width;
+        i += cinfo.len;
+    }
+    return width;
+}
+
+void shorten (char *str, int n) {
+    int i, j;
+    int width = 0;
+    charinfo_t cinfo;
+    for (i = 0; str[i];) {
+        get_char_info(&cinfo, str + i);
+        if (width + cinfo.width > n / 2) {
+            break;
+        }
+        width += cinfo.width;
+        i += cinfo.len;
+    }
+    int len = strlen(str);
+    for (j = strlen(str) - 1; j > i; j--) {
+        if ((str[j] & 0xc0) == 0x80) {
+            j--;
+        }
+        get_char_info(&cinfo, str + j);
+        width += cinfo.width;
+        if (width >= n) {
+            break;
+        }
+    }
+    if (j > i) {
+        memmove(str + i, str + j, len - j + 1);
+    }
+}
+
+void bye () {
+    tcsetattr(tty, TCSANOW, &tcattr1);
+    printf("%s", tparm(change_scroll_region, 0, lines - 1));
+    printf("%s", cursor_normal);
+    printf("%s", exit_ca_mode);
+    exit(0);
+}
+
+void set_tcattr () {
+    tcattr2 = tcattr1;
+    tcattr2.c_lflag &= ~(ICANON|ECHO);
+    tcattr2.c_cc[VMIN] = 1;
+    tcattr2.c_cc[VTIME] = 0;
+    tcsetattr(tty, TCSAFLUSH, &tcattr2);
+}
+
+void cont () {
+    signal(SIGCONT, cont);
+    set_tcattr();
+}
+
+void add_tab (const char *name, int fd) {
+    tab_t *tabb = malloc(sizeof (tab_t));
+    tabb->name = name;
+    tabb->name_width = strwidth(name);
+    tabb->name2 = strdup(name);
+    tabb->fd = fd;
+    tabb->pos = 0;
+    tabb->end_pos = 0;
+    tabb->loaded = 0;
+    tabb->buf = NULL;
+    tabb->buf_len = 0;
+    tabb->buf_size = 0;
+    tabb->screen_filled = 0;
+    tabb->stragglers = malloc(16);
+    tabb->stragglers_len = 0;
+    tabb->line = 1;
+    tabb->end_line = 1;
+    tabb->nlines = 1;
+    if (tabs_size == 0) {
+        tabs_size = 4;
+        tabs = malloc(tabs_size * sizeof (tab_t *));
+    }
+    else if (tabs_len == tabs_size) {
+        tabs_size *= 2;
+        tabs = realloc(tabs, tabs_size * sizeof (tab_t *));
+    }
+    tabs[tabs_len] = tabb;
+    tabs_len++;
+}
+
+void generate_tab_names () {
+    int i;
+    int width = (tabs_len - 1) * 2;
+    for (i = 0; i < tabs_len; i++) {
+        strcpy(tabs[i]->name2, tabs[i]->name);
+        width += tabs[i]->name_width;
+    }
+    if (width <= columns) {
+        return;
+    }
+    width = (tabs_len - 1) * 2;
+    for (i = 0; i < tabs_len; i++) {
+        char *name = basename(tabs[i]->name2);
+        strcpy(tabs[i]->name2, name);
+        width += strwidth(name);
+    }
+    if (width <= columns) {
+        return;
+    }
+    width = 4 * tabs_len + 2 * (tabs_len - 1);
+    int width2 = (columns - 2 * (tabs_len - 1)) / tabs_len;
+    if (width2 < 6) {
+        width2 = 10;
+    }
+    for (i = 0; i < tabs_len; i++) {
+        char *name = tabs[i]->name2;
+        shorten(name, width2);
+    }
+}
+
+void draw_tabs () {
+    if (tabs_len == 1) {
+        return;
+    }
+    generate_tab_names();
+    char *str = tparm(cursor_address, 0, 0);
+    printf("%s", str);
+    str = tparm(set_a_background, 232 + 2);
+    printf("%s", str);
+    int i;
+    int width = 0;
+    for (i = 0; i < tabs_len; i++) {
+        char *name = tabs[i]->name2;
+        int width2 = strwidth(name);
+        if (width + width2 > columns) {
+            break;
+        }
+        if (i == current_tab) {
+            printf("%s", enter_bold_mode);
+            printf("%s", name);
+            printf("%s", exit_attribute_mode);
+            str = tparm(set_a_background, 232 + 2);
+            printf("%s", str);
+        }
+        else {
+            printf("%s", name);
+        }
+        width += width2;
+        if (width + 2 > columns) {
+            break;
+        }
+        if (i < tabs_len - 1) {
+            printf("  ");
+        }
+    }
+    for (i = 0; i < columns - width; i++) {
+        printf(" ");
+    }
+    printf("%s", exit_attribute_mode);
+    printf("\n");
 }
 
 void draw_tab_nowrap (int n, size_t pos) {
@@ -1136,8 +1224,20 @@ void close_tab () {
         current_tab--;
     }
     tabb = tabs[current_tab];
-    // TODO free tabb2
-    // set line1 if we have to
+
+    free(tabb2->name2);
+    free(tabb2->buf);
+    free(tabb2->stragglers);
+    if (!tabb2->loaded && tabb2->fd) {
+        close(tabb2->fd);
+    }
+    free(tabb2);
+
+    if (tabs_len == 1) {
+        line1 = 0;
+        printf("%s", tparm(change_scroll_region, line1, lines - 1));
+    }
+
     draw_tabs();
     draw_tab();
 }
@@ -1340,12 +1440,6 @@ void parse_args (int argc, char **argv) {
         fprintf(stderr, "No files\n");
         exit(1);
     }
-    if (tabs_len == 1) {
-        line1 = 0;
-    }
-    else {
-        line1 = 1;
-    }
 }
 
 int main (int argc, char **argv) {
@@ -1381,6 +1475,7 @@ int main (int argc, char **argv) {
     status_buf_len = 0;
     status_buf = malloc(status_buf_size);
 
+    line1 = tabs_len == 1 ? 0 : 1;
     printf("%s", tparm(change_scroll_region, line1, lines - 1));
 
     draw_tabs();
