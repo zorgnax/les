@@ -23,11 +23,9 @@ typedef struct {
     char *stragglers;
     size_t stragglers_len;
     size_t pos;
-    size_t end_pos;
     int loaded;
     int screen_filled;
     int line;
-    int end_line;
     int nlines;
 } tab_t;
 
@@ -44,6 +42,12 @@ typedef struct {
     unsigned int to;
     int width;
 } width_range_t;
+
+typedef struct {
+    size_t pos;
+    size_t end_pos;
+    size_t vend_pos; // visible end position
+} tline_t;
 
 size_t tabs_len = 0;
 size_t tabs_size = 0;
@@ -62,6 +66,15 @@ char ttybuf[256];
 size_t ttybuf_len = 0;
 size_t ttybuf_width = 0;
 int line1;
+tline_t *tlines = NULL;
+size_t tlines_len = 0;
+size_t tlines_size = 0;
+tline_t *tlines2 = NULL;
+size_t tlines2_len = 0;
+size_t tlines2_size = 0;
+tline_t *tlines3 = NULL;
+size_t tlines3_len = 0;
+size_t tlines3_size = 0;
 
 int get_char_width (unsigned int codepoint) {
     static width_range_t width_ranges[] = {
@@ -484,7 +497,6 @@ void add_tab (const char *name, int fd) {
     tabb->name2 = strdup(name);
     tabb->fd = fd;
     tabb->pos = 0;
-    tabb->end_pos = 0;
     tabb->loaded = 0;
     tabb->buf = NULL;
     tabb->buf_len = 0;
@@ -493,8 +505,7 @@ void add_tab (const char *name, int fd) {
     tabb->stragglers = malloc(16);
     tabb->stragglers_len = 0;
     tabb->line = 1;
-    tabb->end_line = 1;
-    tabb->nlines = 1;
+    tabb->nlines = 0;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -579,53 +590,6 @@ void draw_tabs () {
     printf("\n");
 }
 
-void draw_tab_nowrap (int n, size_t pos) {
-    int i;
-    int line = 0;
-    int column = 0;
-    charinfo_t cinfo;
-    for (i = pos; i < tabb->buf_len;) {
-        unsigned char c = tabb->buf[i];
-        get_char_info(&cinfo, tabb->buf + i);
-        if (column + cinfo.width <= columns) {
-            if (cinfo.error) {
-                printf("?");
-            }
-            else if (c != '\n') {
-                printf("%.*s", cinfo.len, tabb->buf + i);
-            }
-        }
-        i += cinfo.len;
-        if (c == '\n' || i + cinfo.len == tabb->buf_len) {
-            if (line == n - 1) {
-                break;
-            }
-            if (column < columns) {
-                printf("%s", clr_eol);
-            }
-            printf("\n");
-            column = 0;
-            line++;
-        }
-        else {
-            column += cinfo.width;
-        }
-    }
-
-    tabb->end_pos = i;
-    tabb->end_line = line;
-    if (line == n - 1) {
-        tabb->screen_filled = 1;
-    }
-    if (column >= columns) {
-        printf("\n");
-        line++;
-    }
-    for (i = line; i < n; i++) {
-        printf("%s\n", clr_eol);
-    }
-}
-
 char *human_readable (double size) {
     static char buf[32];
     static char power[] = "BKMGTPEZY";
@@ -666,7 +630,7 @@ void draw_status () {
     }
     char *hrsize = human_readable(tabb->buf_len);
     retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
-        " %lu -> %lu %d/%d %s", tabb->pos, tabb->end_pos, tabb->line, tabb->nlines, hrsize);
+        " %lu -> %lu %d/%d %s", tabb->pos, tlines[tlines_len - 1].end_pos, tabb->line, tabb->nlines, hrsize);
     right_len += retval;
     right_width += retval;
     int right = columns - right_width;
@@ -704,13 +668,47 @@ void draw_status () {
     printf("%.*s", (int) status_buf_len, status_buf);
 }
 
-void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
-                     size_t **wlines_ret, size_t *wlines_len_ret,
-                     size_t *lines_len_ret) {
-    static size_t *wlines = NULL;
-    static size_t wlines_len = 0;
-    static size_t wlines_size = 0;
-    size_t lines_len = 0;
+void get_nowrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size) {
+    int i, j;
+    unsigned char c;
+    charinfo_t cinfo;
+    int line = 0;
+    int column = 0;
+
+    *tlines_len = 1;
+    (*tlines)[*tlines_len - 1].pos = pos;
+    (*tlines)[*tlines_len - 1].vend_pos = pos;
+
+    for (i = pos; i < len;) {
+        c = buf[i];
+        get_char_info(&cinfo, buf + i);
+        j = i + cinfo.len;
+        if (column + cinfo.width <= columns) {
+            (*tlines)[*tlines_len - 1].vend_pos = j;
+        }
+        if (c == '\n' || j == len) {
+            (*tlines)[*tlines_len - 1].end_pos = j;
+            if (j == len || (max && *tlines_len == max)) {
+                break;
+            }
+            if (*tlines_len + 1 > *tlines_size) {
+                *tlines_size *= 2;
+                *tlines = realloc(*tlines, *tlines_size * sizeof (tline_t));
+            }
+            (*tlines_len)++;
+            (*tlines)[*tlines_len - 1].pos = j;
+            (*tlines)[*tlines_len - 1].vend_pos = j;
+            column = 0;
+            line++;
+        }
+        else {
+            column += cinfo.width;
+        }
+        i = j;
+    }
+}
+
+void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size) {
     int i, j, k;
     unsigned char c1, c2;
     int whitespace1, whitespace2;
@@ -718,33 +716,27 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
     int column = 0;
     int width;
 
-    if (!wlines_size) {
-        wlines_size = 64;
-        wlines = malloc(wlines_size * sizeof (size_t));
-    }
-    wlines[0] = pos;
-    wlines_len = 1;
-    if (pos == buf_len) {
-        *wlines_ret = wlines;
-        *wlines_len_ret = wlines_len;
-        return;
-    }
-    for (i = pos; i < buf_len;) {
+    *tlines_len = 1;
+    (*tlines)[*tlines_len - 1].pos = pos;
+
+    for (i = pos; i < len;) {
         c1 = buf[i];
 
         if (c1 == '\n') {
             i++;
-            if (wlines_size < wlines_len + 1) {
-                wlines_size *= 2;
-                wlines = realloc(wlines, wlines_size * sizeof (size_t));
+            (*tlines)[*tlines_len - 1].end_pos = i;
+            (*tlines)[*tlines_len - 1].vend_pos = i;
+            if (i == len || (max && *tlines_len == max)) {
+                goto end;
             }
-            wlines[wlines_len] = i;
-            wlines_len++;
-            lines_len++;
+            if (*tlines_len + 1 > *tlines_size) {
+                *tlines_size *= 2;
+                *tlines = realloc(*tlines, *tlines_size * sizeof (tline_t));
+            }
+            (*tlines_len)++;
+            (*tlines)[*tlines_len - 1].pos = i;
+
             column = 0;
-            if (max && wlines_len > max) {
-                break;
-            }
             continue;
         }
 
@@ -752,7 +744,7 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
         get_char_info(&cinfo1, buf + i);
         whitespace1 = c1 == ' ' || c1 == '\t';
         width = cinfo1.width;
-        for (j = i + cinfo1.len; j < buf_len;) {
+        for (j = i + cinfo1.len; j < len;) {
             unsigned char c2 = buf[j];
             if (c2 == '\n') {
                 break;
@@ -775,15 +767,17 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
 
         // it doesn't fit on this line, but would fit on a line by itself
         if (width <= columns) {
-            if (wlines_size < wlines_len + 1) {
-                wlines_size *= 2;
-                wlines = realloc(wlines, wlines_size * sizeof (size_t));
+            (*tlines)[*tlines_len - 1].end_pos = i;
+            (*tlines)[*tlines_len - 1].vend_pos = i;
+            if (max && *tlines_len == max) {
+                goto end;
             }
-            wlines[wlines_len] = i;
-            wlines_len++;
-            if (max && wlines_len > max) {
-                break;
+            if (*tlines_len + 1 > *tlines_size) {
+                *tlines_size *= 2;
+                *tlines = realloc(*tlines, *tlines_size * sizeof (tline_t));
             }
+            (*tlines_len)++;
+            (*tlines)[*tlines_len - 1].pos = i;
             column = width;
             i = j;
             continue;
@@ -794,15 +788,17 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
         for (k = 0; k < j - i;) {
             get_char_info(&cinfo2, buf + i + k);
             if (column + cinfo2.width > columns) {
-                if (wlines_size < wlines_len + 1) {
-                    wlines_size *= 2;
-                    wlines = realloc(wlines, wlines_size * sizeof (size_t));
-                }
-                wlines[wlines_len] = i + k;
-                wlines_len++;
-                if (max && wlines_len > max) {
+                (*tlines)[*tlines_len - 1].end_pos = i + k;
+                (*tlines)[*tlines_len - 1].vend_pos = i + k;
+                if (max && *tlines_len == max) {
                     goto end;
                 }
+                if (*tlines_len + 1 > *tlines_size) {
+                    *tlines_size *= 2;
+                    *tlines = realloc(*tlines, *tlines_size * sizeof (tline_t));
+                }
+                (*tlines_len)++;
+                (*tlines)[*tlines_len - 1].pos = i + k;
                 column = 0;
             }
             column += cinfo2.width;
@@ -810,35 +806,38 @@ void get_wrap_lines (char *buf, size_t buf_len, size_t pos, int max,
         }
         i = j;
     }
+    (*tlines)[*tlines_len - 1].end_pos = i;
+    (*tlines)[*tlines_len - 1].vend_pos = i;
 
     end:
-    if ((!max || wlines_len <= max) && wlines[wlines_len - 1] != buf_len) {
-        if (wlines_size < wlines_len + 1) {
-            wlines_size *= 2;
-            wlines = realloc(wlines, wlines_size * sizeof (size_t));
-        }
-        wlines[wlines_len] = buf_len;
-        wlines_len++;
-    }
-    *wlines_ret = wlines;
-    *wlines_len_ret = wlines_len;
-    *lines_len_ret = lines_len;
+    return;
 }
 
-void draw_tab_wrap (int n, size_t pos) {
-    int i;
-    int len;
-    size_t *wlines;
-    size_t wlines_len;
-    size_t lines_len;
+void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size) {
+    *tlines_len = 0;
+    if (!*tlines_size) {
+        *tlines_size = lines;
+        *tlines = malloc(*tlines_size * sizeof (tline_t));
+    }
+    if (pos >= len) {
+        return;
+    }
+    if (line_wrap) {
+        get_wrap_tlines(buf, len, pos, max, tlines, tlines_len, tlines_size);
+    }
+    else {
+        get_nowrap_tlines(buf, len, pos, max, tlines, tlines_len, tlines_size);
+    }
+}
 
-    get_wrap_lines(tabb->buf, tabb->buf_len, pos, n, &wlines, &wlines_len, &lines_len);
+void draw_tab2 (int n, tline_t *tlines, size_t tlines_len) {
+    int i, j;
     for (i = 0; i < n; i++) {
         printf("%s", clr_eol);
-        if (i < wlines_len - 1) {
-            len = wlines[i + 1] - wlines[i];
-            printf("%.*s", len, tabb->buf + wlines[i]);
-            if (!len || tabb->buf[wlines[i] + len - 1] != '\n') {
+        if (i < tlines_len) {
+            j = tlines[i].vend_pos - tlines[i].pos;
+            printf("%.*s", j, tabb->buf + tlines[i].pos);
+            if (!j || tabb->buf[tlines[i].vend_pos - 1] != '\n') {
                 printf("\n");
             }
         }
@@ -846,25 +845,15 @@ void draw_tab_wrap (int n, size_t pos) {
             printf("\n");
         }
     }
-    tabb->end_pos = wlines[wlines_len - 1];
-    tabb->end_line = wlines_len - 1;
-    if (wlines_len - 1 == n) {
-        tabb->screen_filled = 1;
-    }
-}
-
-void draw_tab2 (int n, size_t pos) {
-    if (line_wrap) {
-        draw_tab_wrap(n, pos);
-    }
-    else {
-        draw_tab_nowrap(n, pos);
-    }
 }
 
 void draw_tab () {
     printf("%s", tparm(cursor_address, line1, 0));
-    draw_tab2(lines - line1 - 1, tabb->pos);
+    get_tlines(tabb->buf, tabb->buf_len, tabb->pos, lines - line1 - 1, &tlines, &tlines_len, &tlines_size);
+    draw_tab2(lines - line1 - 1, tlines, tlines_len);
+    if (tlines_len == lines - line1 - 1) {
+        tabb->screen_filled = 1;
+    }
     draw_status();
 }
 
@@ -974,6 +963,11 @@ void read_file () {
         if (tabb->fd) {
             close(tabb->fd);
         }
+        if (tabb->buf_len && tabb->buf[tabb->buf_len - 1] != '\n') {
+            tabb->nlines++;
+        }
+        position_status();
+        draw_status();
         return;
     }
     nread += tabb->stragglers_len;
@@ -1037,149 +1031,138 @@ int next_line (char *buf, size_t len, size_t pos, int n, int *m) {
     return pos2;
 }
 
-// you ask for the 5th previous line but it only has 3 lines, it
-// will return the location of the 3rd previous line and put 3 into
-// the m pointer.
-int prev_line (char *buf, size_t len, size_t pos, int n, int *m) {
+int prev_line (char *buf, size_t len, size_t pos, int n) {
     int i;
     int line = 0;
-    *m = 0;
-    size_t pos2 = pos;
     if (pos == 0) {
         return 0;
     }
     for (i = pos - 1; i > 0; i--) {
         if (buf[i] == '\n' || i == len - 1) {
             line++;
-            pos2 = i + 1;
             if (line == n + 1) {
-                *m = line - 1;
-                return pos2;
+                return i + 1;
             }
         }
     }
     line++;
-    *m = line - 1;
     return 0;
 }
 
-void move_forward (int n) {
-    int m = 0;
-    if (line_wrap) {
-        size_t *wlines;
-        size_t wlines_len;
-        size_t lines_len;
-        get_wrap_lines(tabb->buf, tabb->buf_len, tabb->pos, n,
-                   &wlines, &wlines_len, &lines_len);
-        if (wlines[wlines_len - 1] == tabb->buf_len) {
-            if (wlines_len <= 2) {
-                return;
-            }
-            m = wlines_len - 2;
+void move_forward_long (int n) {
+    size_t pos = tlines[tlines_len - 1].end_pos;
+    get_tlines(tabb->buf, tabb->buf_len, pos, n - tlines_len + 1, &tlines2, &tlines2_len, &tlines2_size);
+    tabb->pos = tlines2[tlines2_len - 1].pos;
+    int i;
+    for (i = 0; i < tlines_len; i++) {
+        if (tabb->buf[tlines[i].end_pos - 1] == '\n') {
+            tabb->line++;
         }
-        else {
-            m = wlines_len - 1;
+    }
+    for (i = 0; i < tlines2_len - 1; i++) {
+        if (tabb->buf[tlines2[i].end_pos - 1] == '\n') {
+            tabb->line++;
         }
-        tabb->pos = wlines[m];
-        tabb->line += lines_len;
     }
-    else {
-        int next = next_line(tabb->buf, tabb->buf_len, tabb->pos, n, &m);
-        tabb->pos = next;
-        tabb->line += m;
-    }
-    if (!m) {
-        return;
-    }
-    if (m < lines - line1 - 1) {
-        printf("%s", cursor_up);
-        printf("%s", tparm(parm_index, m));
-        printf("%s", tparm(cursor_address, lines - 1 - m, 0));
-        int end_line = tabb->end_line;
-        draw_tab2(m, tabb->end_pos);
-        tabb->end_line = end_line - m + tabb->end_line;
-        draw_status();
-    }
-    else {
-        draw_tab();
-    }
+    draw_tab();
 }
 
-// returns the nth previous line. if word wrap is active, then those
-// lines are word wrapped lines. if there aren't n lines available it
-// does as much as possible. the actual number of wrapped lines
-// previous is returned in m. the actual number of lines previous
-// is returned in m2.
-int prev_line2 (char *buf, size_t len, size_t pos, int n, int *m, int *m2) {
-    int i, t;
-    size_t pos2;
-    *m = 0;
-    *m2 = 0;
-    if (pos == 0) {
-        return 0;
+void move_forward_short (int n) {
+    int m = n > (tlines_len - 1) ? (tlines_len - 1) : n;
+    int i;
+    for (i = 0; i < m; i++) {
+        if (tabb->buf[tlines[i].end_pos - 1] == '\n') {
+            tabb->line++;
+        }
     }
-    if (line_wrap) {
-        size_t *wlines;
-        size_t wlines_len;
-        size_t lines_len;
-        if (buf[pos - 1] == '\n') {
-            (*m2)++;
-        }
-        for (i = 0; i < n;) {
-            get_wrap_lines(buf, pos, prev_line(buf, len, pos, 1, &t), 0,
-                           &wlines, &wlines_len, &lines_len);
-            if (wlines_len == 1) {
-                break;
-            }
-            if (n - i <= wlines_len - 1) {
-                pos = wlines[wlines_len - 1 - (n - i)];
-                i += n - i;
-                break;
-            }
-            else {
-                pos = wlines[0];
-                i += wlines_len - 1;
-                (*m2)++;
-            }
-        }
-        pos2 = pos;
-        *m = i;
+    for (i = 0; i < tlines_len - m; i++) {
+        tlines[i] = tlines[i + m];
+    }
+    tlines_len = tlines_len - m;
+    size_t pos = tlines[tlines_len - 1].end_pos;
+    get_tlines(tabb->buf, tabb->buf_len, pos, m, &tlines2, &tlines2_len, &tlines2_size);
+    for (i = 0; i < tlines2_len; i++) {
+        tlines_len++;
+        tlines[tlines_len - 1] = tlines2[i];
+    }
+    tabb->pos = tlines[0].pos;
+    printf("%s", cursor_up);
+    printf("%s", tparm(parm_index, m));
+    printf("%s", tparm(cursor_address, lines - 1 - m, 0));
+    draw_tab2(m, tlines2, tlines2_len);
+    draw_status();
+}
+
+void move_forward (int n) {
+    if (tlines_len == 1) {
+        return;
+    }
+    if (n < lines - line1 - 1 || tlines[tlines_len - 1].end_pos == tabb->buf_len) {
+        move_forward_short(n);
     }
     else {
-        pos2 = prev_line(buf, len, pos, n, m);
-        *m2 = *m;
+        move_forward_long(n);
     }
-    return pos2;
 }
 
 void move_backward (int n) {
-    int m, m2, m3, t, t2;
-    tabb->pos = prev_line2(tabb->buf, tabb->buf_len, tabb->pos, n, &m, &m2);
-    tabb->line -= m2;
-    if (!m) {
+    if (tabb->pos == 0) {
         return;
     }
-    if (m < lines - line1 - 1) {
-        printf("%s", tparm(cursor_address, line1, 0));
-        printf("%s", tparm(parm_rindex, m));
-        int end_line = tabb->end_line;
-        size_t end_pos = tabb->end_pos;
-        draw_tab2(m, tabb->pos);
-        tabb->end_line = end_line + m;
-        if (tabb->end_line > lines - line1 - 1) {
-            tabb->end_line = lines - line1 - 1;
-        }
-        tabb->end_pos = end_pos;
-        m3 = m - (lines - line1 - 1 - end_line);
-        if (m3 > 0) {
-            tabb->end_pos = prev_line2(tabb->buf, tabb->buf_len, end_pos, m3, &t, &t2);
-        }
-        position_status();
-        draw_status();
+    int i, t, m, n2;
+    size_t pos = tabb->pos;
+    if (tlines3_size < n) {
+        tlines3_size = n;
+        tlines3 = realloc(tlines3, tlines3_size * sizeof (tline_t));
     }
-    else {
+    tlines3_len = 0;
+    while (1) {
+        int prev = prev_line(tabb->buf, tabb->buf_len, pos, 1);
+        get_tlines(tabb->buf, pos, prev, 0, &tlines2, &tlines2_len, &tlines2_size);
+        if (!tlines2_len) {
+            break;
+        }
+        for (i = tlines2_len - 1; i >= 0; i--) {
+            tlines3_len++;
+            tlines3[tlines3_len - 1] = tlines2[i];
+            if (tlines3_len == n) {
+                goto end;
+            }
+        }
+        pos = prev;
+    }
+
+    end:
+    m = tlines3_len;
+    tabb->pos = tlines3[tlines3_len - 1].pos;
+    for (i = 0; i < tlines3_len; i++) {
+        if (tabb->buf[tlines3[i].end_pos - 1] == '\n') {
+            tabb->line--;
+        }
+    }
+    if (m >= lines - line1 - 1) {
         draw_tab();
+        return;
     }
+    for (i = 0; i < m; i++) {
+        tlines2[m - i - 1] = tlines3[i];
+    }
+    tlines2_len = m;
+
+    n2 = (lines - line1 - 1 - m) > tlines_len ? (tlines_len) : (lines - line1 - 1 - m);
+    for (i = n2 - 1; i >= 0; i--) {
+        tlines[i + m] = tlines[i];
+    }
+    tlines_len = n2 + m;
+    for (i = 0; i < m; i++) {
+        tlines[i] = tlines2[i];
+    }
+
+    printf("%s", tparm(cursor_address, line1, 0));
+    printf("%s", tparm(parm_rindex, m));
+    draw_tab2(m, tlines2, tlines2_len);
+    position_status();
+    draw_status();
 }
 
 void move_end () {
@@ -1190,7 +1173,7 @@ void move_end () {
         return;
     }
     tabb->pos = tabb->buf_len;
-    tabb->line = tabb->nlines;
+    tabb->line = tabb->nlines + 1;
     move_backward(lines - line1 - 1);
 }
 
@@ -1248,13 +1231,10 @@ int read_key (char *buf, int len) {
     set_ttybuf(&cinfo, buf, len);
     int extended = 0;
     switch (buf[0]) {
-        case 'b':
-            move_backward(lines - line1 - 2);
-            break;
         case 'd':
             move_forward((lines - line1 - 1) / 2);
             break;
-        case 'f':
+        case 'D':
             move_forward(lines - line1 - 2);
             break;
         case 'g':
@@ -1292,6 +1272,9 @@ int read_key (char *buf, int len) {
             break;
         case 'u':
             move_backward((lines - line1 - 1) / 2);
+            break;
+        case 'U':
+            move_backward(lines - line1 - 2);
             break;
         case 'w':
             line_wrap = !line_wrap;
@@ -1374,15 +1357,15 @@ void usage () {
         "    -w            disable line wrap\n"
         "\n"
         "Key Binds:\n"
-        "    b             go up a screen\n"
         "    d             go down half a screen\n"
-        "    f             go down a screen\n"
-        "    g             go to the top of the buffer\n"
-        "    G             go to the bottom of the buffer\n"
+        "    D             go down a screen\n"
+        "    g             go to the top of the file\n"
+        "    G             go to the bottom of the file\n"
         "    j,↓           go down one line\n"
         "    k,↑           go up one line\n"
         "    q             quit\n"
         "    u             go up half a screen\n"
+        "    U             go up a screen\n"
         "    w             toggle line wrap\n"
     );
 }

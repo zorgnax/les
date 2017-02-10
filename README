@@ -58,6 +58,6 @@ next/prev if/for/while
 left/right scrolling
 help text in a browsable tab
 file browser
-get the line number right for short files (possibly does it end in a new line or not?)
 program crashes when given a directory name
-
+write instead of printf
+J,K go to next/prev paragraph (maybe centering and highlighting it)
