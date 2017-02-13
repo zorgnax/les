@@ -43,19 +43,17 @@ While less is loading the first page, you can not enter keyboard commands.
 
 Tabs.
 
+If you have line wrap and you move right, less will turn off line wrap and move right, which looks confusing.
+
 Todo
 ====
 
-8 character tabs (use the it terminfo parameter)
-windows line endings
+\t
 /searching
 mousewheel scroll
-correct screen width when input has ansi color codes
 show status line percent through file as a colored portion of a bar
 next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
-left/right scrolling
-help text in a browsable tab
 file browser
 program crashes when given a directory name
 write instead of printf
