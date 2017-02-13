@@ -11,6 +11,7 @@
 #include <iconv.h>
 #include <getopt.h>
 #include <libgen.h>
+#include <sys/ioctl.h>
 
 typedef struct {
     const char *name;
@@ -24,7 +25,6 @@ typedef struct {
     size_t stragglers_len;
     size_t pos;
     int loaded;
-    int screen_filled;
     int line;
     int nlines;
 } tab_t;
@@ -474,7 +474,10 @@ void bye () {
     printf("%s", tparm(change_scroll_region, 0, lines - 1));
     printf("%s", cursor_normal);
     printf("%s", exit_ca_mode);
-    exit(0);
+}
+
+void bye2 () {
+    exit(1);
 }
 
 void set_tcattr () {
@@ -486,7 +489,6 @@ void set_tcattr () {
 }
 
 void cont () {
-    signal(SIGCONT, cont);
     set_tcattr();
 }
 
@@ -501,7 +503,6 @@ void add_tab (const char *name, int fd) {
     tabb->buf = NULL;
     tabb->buf_len = 0;
     tabb->buf_size = 0;
-    tabb->screen_filled = 0;
     tabb->stragglers = malloc(16);
     tabb->stragglers_len = 0;
     tabb->line = 1;
@@ -553,10 +554,8 @@ void draw_tabs () {
         return;
     }
     generate_tab_names();
-    char *str = tparm(cursor_address, 0, 0);
-    printf("%s", str);
-    str = tparm(set_a_background, 232 + 2);
-    printf("%s", str);
+    printf("%s", tparm(cursor_address, 0, 0));
+    printf("%s", tparm(set_a_background, 232 + 2));
     int i;
     int width = 0;
     for (i = 0; i < tabs_len; i++) {
@@ -569,8 +568,7 @@ void draw_tabs () {
             printf("%s", enter_bold_mode);
             printf("%s", name);
             printf("%s", exit_attribute_mode);
-            str = tparm(set_a_background, 232 + 2);
-            printf("%s", str);
+            printf("%s", tparm(set_a_background, 232 + 2));
         }
         else {
             printf("%s", name);
@@ -609,9 +607,6 @@ char *human_readable (double size) {
     return buf;
 }
 
-// after displaying the tab you will be in the correct position to
-// write the status, otherwise you will have to call this before
-// draw_status.
 void position_status () {
     printf("%s", tparm(cursor_address, lines - 1, 0));
 }
@@ -665,6 +660,7 @@ void draw_status () {
         status_buf_len++;
     }
 
+    printf("%s", clr_eol);
     printf("%.*s", (int) status_buf_len, status_buf);
 }
 
@@ -842,7 +838,9 @@ void draw_tab2 (int n, tline_t *tlines, size_t tlines_len) {
             }
         }
         else {
-            printf("\n");
+            printf("%s", tparm(set_a_foreground, 4));
+            printf("~\n");
+            printf("%s", exit_attribute_mode);
         }
     }
 }
@@ -851,10 +849,15 @@ void draw_tab () {
     printf("%s", tparm(cursor_address, line1, 0));
     get_tlines(tabb->buf, tabb->buf_len, tabb->pos, lines - line1 - 1, &tlines, &tlines_len, &tlines_size);
     draw_tab2(lines - line1 - 1, tlines, tlines_len);
-    if (tlines_len == lines - line1 - 1) {
-        tabb->screen_filled = 1;
-    }
     draw_status();
+}
+
+void winch () {
+    struct winsize w;
+    ioctl(tty, TIOCGWINSZ, &w);
+    lines = w.ws_row;
+    columns = w.ws_col;
+    draw_tab();
 }
 
 void count_lines (char *buf, size_t len) {
@@ -978,7 +981,7 @@ void read_file () {
     else {
         add_unencoded_input(buf, nread);
     }
-    if (tabb->screen_filled) {
+    if (tlines_len == lines - line1 - 1) {
         position_status();
         draw_status();
     }
@@ -1011,24 +1014,6 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
             }
         }
     }
-}
-
-int next_line (char *buf, size_t len, size_t pos, int n, int *m) {
-    int i;
-    int line = 0;
-    *m = line;
-    size_t pos2 = pos;
-    for (i = pos; i < len - 1; i++) {
-        if (buf[i] == '\n') {
-            line++;
-            *m = line;
-            pos2 = i + 1;
-            if (line == n) {
-                return pos2;
-            }
-        }
-    }
-    return pos2;
 }
 
 int prev_line (char *buf, size_t len, size_t pos, int n) {
@@ -1193,7 +1178,6 @@ void prev_tab () {
 
 void close_tab () {
     if (tabs_len == 1) {
-        bye();
         exit(0);
         return;
     }
@@ -1261,7 +1245,6 @@ int read_key (char *buf, int len) {
             close_tab();
             break;
         case 'Q':
-            bye();
             exit(0);
             break;
         case 't':
@@ -1310,7 +1293,6 @@ void read_terminal () {
         exit(1);
     }
     if (nread == 0) {
-        bye();
         exit(1);
     }
     int i;
@@ -1322,8 +1304,7 @@ void read_terminal () {
 
 void read_loop () {
     fd_set fds;
-    int nfds;
-    int i;
+    int i, nfds, retval;
     for (i = 0;; i++) {
         FD_ZERO(&fds);
         FD_SET(tty, &fds);
@@ -1334,7 +1315,8 @@ void read_loop () {
             FD_SET(tabb->fd, &fds);
             nfds = tty > tabb->fd ? (tty + 1) : (tabb->fd + 1);
         }
-        if (select(nfds, &fds, NULL, NULL, NULL) < 0) {
+        retval = select(nfds, &fds, NULL, NULL, NULL);
+        if (retval < 0 && errno != EINTR) {
             perror("select");
             exit(1);
         }
@@ -1443,9 +1425,10 @@ int main (int argc, char **argv) {
     }
 
     atexit(bye);
-    signal(SIGINT, bye);
-    signal(SIGQUIT, bye);
+    signal(SIGINT, bye2);
+    signal(SIGQUIT, bye2);
     signal(SIGCONT, cont);
+    signal(SIGWINCH, winch);
 
     printf("%s", enter_ca_mode);
     printf("%s", cursor_invisible);

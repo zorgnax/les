@@ -52,7 +52,6 @@ windows line endings
 mousewheel scroll
 correct screen width when input has ansi color codes
 show status line percent through file as a colored portion of a bar
-winch signal
 next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
 left/right scrolling
@@ -61,3 +60,4 @@ file browser
 program crashes when given a directory name
 write instead of printf
 J,K go to next/prev paragraph (maybe centering and highlighting it)
+
