@@ -75,6 +75,7 @@ size_t tlines2_size = 0;
 tline_t *tlines3 = NULL;
 size_t tlines3_len = 0;
 size_t tlines3_size = 0;
+int tab_width = 4;
 
 int get_char_width (unsigned int codepoint) {
     static width_range_t width_ranges[] = {
@@ -361,7 +362,10 @@ int get_char_width (unsigned int codepoint) {
         {0xe0100, 0xe01ef, 0},
     };
 
-    if (codepoint < 0x20) {
+    if (codepoint == 0x09) {
+        return tab_width;
+    }
+    else if (codepoint < 0x20) {
         return 0;
     }
     else if (codepoint < 0x7f) {
@@ -824,9 +828,19 @@ void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, s
 }
 
 void draw_line_wrap (tline_t *tline) {
-    int len = tline->end_pos - tline->pos;
-    printf("%.*s", len, tabb->buf + tline->pos);
-    if (!len || tabb->buf[tline->end_pos - 1] != '\n') {
+    charinfo_t cinfo;
+    int i;
+    for (i = tline->pos; i < tline->end_pos;) {
+        get_char_info(&cinfo, tabb->buf + i);
+        if (tabb->buf[i] == '\t') {
+            printf("%*s", tab_width, "");
+        }
+        else {
+            printf("%.*s", cinfo.len, tabb->buf + i);
+        }
+        i += cinfo.len;
+    }
+    if (i == tline->pos || tabb->buf[i - 1] != '\n') {
         printf("\n");
     }
 }
@@ -860,7 +874,12 @@ void draw_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == 0x1b) {
             e++;
         }
-        printf("%.*s", cinfo.len, tabb->buf + i);
+        if (tabb->buf[i] == '\t') {
+            printf("%*s", tab_width, "");
+        }
+        else {
+            printf("%.*s", cinfo.len, tabb->buf + i);
+        }
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -1424,6 +1443,7 @@ void usage () {
         "Options:\n"
         "    -e=encoding   input file encoding\n"
         "    -h            help text\n"
+        "    -t=width      tab width (default 4)\n"
         "    -w            disable line wrap\n"
         "\n"
         "Key Binds:\n"
@@ -1457,6 +1477,7 @@ void parse_args (int argc, char **argv) {
     struct option longopts[] = {
         {"e", required_argument, NULL, 'e'},
         {"h", no_argument, NULL, 'h'},
+        {"t", required_argument, NULL, 't'},
         {"w", no_argument, NULL, 'w'},
         {NULL, 0, NULL, 0}
     };
@@ -1470,6 +1491,9 @@ void parse_args (int argc, char **argv) {
         case 'h':
             usage();
             exit(0);
+        case 't':
+            tab_width = atoi(optarg);
+            break;
         case 'w':
             line_wrap = 0;
             break;
