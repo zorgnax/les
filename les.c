@@ -523,7 +523,7 @@ void add_tab (const char *name, int fd) {
     tabb->fd = fd;
     tabb->pos = 0;
     tabb->loaded = 0;
-    tabb->buf_size = 4096;
+    tabb->buf_size = 8192;
     tabb->buf = malloc(tabb->buf_size);
     tabb->buf_len = 0;
     tabb->stragglers = malloc(16);
@@ -849,19 +849,25 @@ void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, s
 void draw_line_wrap (tline_t *tline) {
     charinfo_t cinfo;
     int i;
+    int width = 0;
     for (i = tline->pos; i < tline->end_pos;) {
         get_char_info(&cinfo, tabb->buf + i);
-        if (tabb->buf[i] == '\t') {
+        if (tabb->buf[i] == '\n') {
+            break;
+        }
+        else if (tabb->buf[i] == '\t') {
             printf("%*s", tab_width, "");
         }
         else {
             printf("%.*s", cinfo.len, tabb->buf + i);
         }
+        width += cinfo.width;
         i += cinfo.len;
     }
-    if (i == tline->pos || tabb->buf[i - 1] != '\n') {
-        printf("\n");
+    if (width < columns) {
+        printf("%s", clr_eol);
     }
+    printf("\n");
 }
 
 void draw_line_nowrap (tline_t *tline) {
@@ -882,6 +888,7 @@ void draw_line_nowrap (tline_t *tline) {
         i += cinfo.len;
     }
     if (i == tline->end_pos) {
+        printf("%s", clr_eol);
         printf("\n");
         return;
     }
@@ -893,6 +900,9 @@ void draw_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == 0x1b) {
             e++;
         }
+        if (tabb->buf[i] == '\n') {
+            break;
+        }
         if (tabb->buf[i] == '\t') {
             printf("%*s", tab_width, "");
         }
@@ -902,9 +912,10 @@ void draw_line_nowrap (tline_t *tline) {
         width += cinfo.width;
         i += cinfo.len;
     }
-    if (tabb->buf[i - 1] != '\n') {
-        printf("\n");
+    if (width < columns + tabb->column) {
+        printf("%s", clr_eol);
     }
+    printf("\n");
     if (e) {
         printf("%s", exit_attribute_mode);
     }
@@ -913,7 +924,6 @@ void draw_line_nowrap (tline_t *tline) {
 void draw_tab2 (int n, tline_t *tlines, size_t tlines_len) {
     int i;
     for (i = 0; i < n; i++) {
-        printf("%s", clr_eol);
         if (i < tlines_len) {
             if (line_wrap) {
                 draw_line_wrap(tlines + i);
@@ -924,8 +934,10 @@ void draw_tab2 (int n, tline_t *tlines, size_t tlines_len) {
         }
         else {
             printf("%s", tparm(set_a_foreground, 4));
-            printf("~\n");
+            printf("~");
+            printf("%s", clr_eol);
             printf("%s", exit_attribute_mode);
+            printf("\n");
         }
     }
 }
@@ -1028,7 +1040,7 @@ void add_unencoded_input (char *buf, size_t buf_len) {
 }
 
 void read_file () {
-    static char buf[4096];
+    static char buf[8192];
     if (tabb->stragglers_len) {
         memcpy(buf, tabb->stragglers, tabb->stragglers_len);
     }
@@ -1152,11 +1164,16 @@ void move_forward_short (int n) {
         tlines[tlines_len - 1] = tlines2[i];
     }
     tabb->pos = tlines[0].pos;
-    printf("%s", cursor_up);
-    printf("%s", tparm(parm_index, m));
-    printf("%s", tparm(cursor_address, lines - 1 - m, 0));
-    draw_tab2(m, tlines2, tlines2_len);
-    draw_status();
+    if (m > (lines - line1 - 1) / 3) {
+        draw_tab();
+    }
+    else {
+        printf("%s", cursor_up);
+        printf("%s", tparm(parm_index, m));
+        printf("%s", tparm(cursor_address, lines - 1 - m, 0));
+        draw_tab2(m, tlines2, tlines2_len);
+        draw_status();
+    }
 }
 
 void move_forward (int n) {
@@ -1206,7 +1223,7 @@ void move_backward (int n) {
             tabb->line--;
         }
     }
-    if (m >= lines - line1 - 1) {
+    if (m >= (lines - line1 - 1) / 3) {
         draw_tab();
         return;
     }
@@ -1376,7 +1393,13 @@ int read_key (char *buf, int len) {
         case -64 + 'D':
             move_forward(10000);
             break;
+        case -64 + 'H':
+            move_left(1);
+            break;
         case -64 + 'L':
+            move_right(1);
+            break;
+        case -64 + 'R':
             draw_tab();
             break;
         case -64 + 'U':
@@ -1462,7 +1485,7 @@ void read_loop () {
 
 void usage () {
     printf(
-        "Usage: les [-hw] [-e=encoding] file...\n"
+        "Usage: les [-hw] [-e=encoding] [-t=width] file...\n"
         "\n"
         "Options:\n"
         "    -e=encoding   input file encoding\n"
@@ -1475,11 +1498,11 @@ void usage () {
         "    D             go down a screen\n"
         "    g             go to the top of the file\n"
         "    G             go to the bottom of the file\n"
-        "    h             go left 4 spaced\n"
+        "    h,←           go left 4 spaced\n"
         "    H             go left half a screen\n"
         "    j,↓           go down one line\n"
         "    k,↑           go up one line\n"
-        "    l             go right 4 spaces\n"
+        "    l,→           go right 4 spaces\n"
         "    L             go right half a screen\n"
         "    q             quit\n"
         "    u             go up half a screen\n"
