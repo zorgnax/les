@@ -25,12 +25,12 @@ of the program.
 Highlights
 ==========
 
-This will highlight all on a page in blue. The one you are up to
-in green. vim and less only search for things in the screen you are
-on for performance reasons. This program will find all matches in
-the buffer so I can show the number of matches in the status line.
-It'll be a little bit slower. But it let's me do the search one
-time instead of every time you go down a line.
+When you search, this will highlight all matches on a page in blue.
+The one you are up to in green. vim and less only search for things
+in the screen you are on for performance reasons. This program will
+find all matches in the buffer so I can show the number of matches
+in the status line.  It'll be a little bit slower. But it let's me
+do the search one time instead of every time you go down a line.
 
 Improvements Over less
 ======================
@@ -48,14 +48,15 @@ If you have line wrap and you move right, less will turn off line wrap and move 
 Todo
 ====
 
-\t
 /searching
-mousewheel scroll
-show status line percent through file as a colored portion of a bar
 next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
+J,K go to next/prev paragraph (maybe centering and highlighting it)
 file browser
 program crashes when given a directory name
 write instead of printf
-J,K go to next/prev paragraph (maybe centering and highlighting it)
+mousewheel scroll
+split c files
+only clr_eol if needed
+port to linux
 

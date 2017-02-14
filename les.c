@@ -393,6 +393,9 @@ int get_char_width (unsigned int codepoint) {
 int get_escape_len (const char *buf) {
     int i;
     for (i = 1;; i++) {
+        if (buf[i] == '\0') {
+            return 1;
+        }
         if ((buf[i] >= 'a' && buf[i] <= 'z') || (buf[i] >= 'A' && buf[i] <= 'Z')) {
             return i + 1;
         }
@@ -520,9 +523,9 @@ void add_tab (const char *name, int fd) {
     tabb->fd = fd;
     tabb->pos = 0;
     tabb->loaded = 0;
-    tabb->buf = NULL;
+    tabb->buf_size = 4096;
+    tabb->buf = malloc(tabb->buf_size);
     tabb->buf_len = 0;
-    tabb->buf_size = 0;
     tabb->stragglers = malloc(16);
     tabb->stragglers_len = 0;
     tabb->line = 1;
@@ -681,8 +684,24 @@ void draw_status () {
         status_buf_len++;
     }
 
-    printf("%s", clr_eol);
-    printf("%.*s", (int) status_buf_len, status_buf);
+    printf("%s", tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
+    width = 0;
+    j = 0;
+    for (i = 0; i < status_buf_len;) {
+        get_char_info(&cinfo, status_buf + i);
+        if (j == 0 && (!tabb->buf_len || i >= columns * tabb->pos / tabb->buf_len)) {
+            printf("%s", tparm(set_a_background, 16 + 36*0 + 6*1 + 5));
+            j++;
+        }
+        else if (j == 1 && tabb->buf_len && i >= columns * tlines[tlines_len - 1].end_pos / tabb->buf_len) {
+            printf("%s", exit_attribute_mode);
+            j++;
+        }
+        printf("%.*s", cinfo.len, status_buf + i);
+        width += cinfo.width;
+        i += cinfo.len;
+    }
+    printf("%s", exit_attribute_mode);
 }
 
 void get_nowrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size) {
@@ -939,10 +958,6 @@ void add_encoded_input (char *buf, size_t buf_len) {
     char *buf_ptr = buf;
     size_t buf_left = buf_len;
 
-    if (tabb->buf_size == 0) {
-        tabb->buf_size = 1024;
-        tabb->buf = malloc(tabb->buf_size);
-    }
     size_t tabb_buf_left = tabb->buf_size - tabb->buf_len;
     char *tabb_buf_ptr = tabb->buf + tabb->buf_len;
     size_t tabb_buf_len_orig = tabb->buf_len;
@@ -992,12 +1007,7 @@ void add_encoded_input (char *buf, size_t buf_len) {
 // are incomplete then they are stored in the stragglers array
 void add_unencoded_input (char *buf, size_t buf_len) {
     if (tabb->buf_size - tabb->buf_len < buf_len) {
-        if (tabb->buf_size == 0) {
-            tabb->buf_size = 1024;
-        }
-        else {
-            tabb->buf_size *= 2;
-        }
+        tabb->buf_size *= 2;
         tabb->buf = realloc(tabb->buf, tabb->buf_size);
     }
     int i;
@@ -1018,7 +1028,7 @@ void add_unencoded_input (char *buf, size_t buf_len) {
 }
 
 void read_file () {
-    char buf[1024];
+    static char buf[4096];
     if (tabb->stragglers_len) {
         memcpy(buf, tabb->stragglers, tabb->stragglers_len);
     }
@@ -1047,9 +1057,14 @@ void read_file () {
     else {
         add_unencoded_input(buf, nread);
     }
+    if (tabb->buf_len == tabb->buf_size) {
+        tabb->buf_size += tabb->buf_size;
+        tabb->buf = realloc(tabb->buf, tabb->buf_size);
+    }
+    tabb->buf[tabb->buf_len] = '\0';
     if (tlines_len == lines - line1 - 1) {
-        position_status();
-        draw_status();
+         position_status();
+         draw_status();
     }
     else {
         draw_tab();
@@ -1145,7 +1160,7 @@ void move_forward_short (int n) {
 }
 
 void move_forward (int n) {
-    if (tlines_len == 1) {
+    if (tlines_len <= 1) {
         return;
     }
     if (n < lines - line1 - 1 || tlines[tlines_len - 1].end_pos == tabb->buf_len) {
@@ -1358,6 +1373,15 @@ int read_key (char *buf, int len) {
             line_wrap = !line_wrap;
             draw_tab();
             break;
+        case -64 + 'D':
+            move_forward(10000);
+            break;
+        case -64 + 'L':
+            draw_tab();
+            break;
+        case -64 + 'U':
+            move_backward(10000);
+            break;
         default:
             extended = 1;
     }
@@ -1566,4 +1590,3 @@ int main (int argc, char **argv) {
     read_loop();
     return 0;
 }
-
