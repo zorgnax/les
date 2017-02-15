@@ -727,11 +727,11 @@ void draw_status () {
     j = 0;
     for (i = 0; i < status_buf_len;) {
         get_char_info(&cinfo, status_buf + i);
-        if (j == 0 && (!tabb->buf_len || i >= columns * tabb->pos / tabb->buf_len)) {
+        if (j == 0 && (!tabb->buf_len || width >= columns * tabb->pos / tabb->buf_len)) {
             printf("%s", tparm(set_a_background, 16 + 36*0 + 6*1 + 5));
             j++;
         }
-        else if (j == 1 && tabb->buf_len && i >= columns * tlines[tlines_len - 1].end_pos / tabb->buf_len) {
+        else if (j == 1 && tabb->buf_len && width >= columns * tlines[tlines_len - 1].end_pos / tabb->buf_len) {
             printf("%s", exit_attribute_mode);
             j++;
         }
@@ -890,7 +890,7 @@ void draw_line_wrap (tline_t *tline) {
     int width = 0;
     for (i = tline->pos; i < tline->end_pos;) {
         get_char_info(&cinfo, tabb->buf + i);
-        if (tabb->buf[i] == '\n') {
+        if (tabb->buf[i] == '\r' || tabb->buf[i] == '\n') {
             break;
         }
         else if (tabb->buf[i] == '\t') {
@@ -938,7 +938,7 @@ void draw_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == 0x1b) {
             e++;
         }
-        if (tabb->buf[i] == '\n') {
+        if (tabb->buf[i] == '\r' || tabb->buf[i] == '\n') {
             break;
         }
         if (tabb->buf[i] == '\t') {

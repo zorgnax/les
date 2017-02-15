@@ -52,11 +52,7 @@ Todo
 next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
-file browser
-program crashes when given a directory name
-write instead of printf
 mousewheel scroll
 split c files
-only clr_eol if needed
 port to linux
 
