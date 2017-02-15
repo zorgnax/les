@@ -516,7 +516,7 @@ void cont () {
 }
 
 void add_tab (const char *name, int fd) {
-    tab_t *tabb = malloc(sizeof (tab_t));
+    tabb = malloc(sizeof (tab_t));
     tabb->name = name;
     tabb->name_width = strwidth(name);
     tabb->name2 = strdup(name);
@@ -541,6 +541,44 @@ void add_tab (const char *name, int fd) {
     }
     tabs[tabs_len] = tabb;
     tabs_len++;
+}
+
+int add_tab_file (const char *name) {
+    int fd = open(name, O_RDONLY);
+    if (fd < 0) {
+        fprintf(stderr, "Can't open %s: %s\n", name, strerror(errno));
+        return 0;
+    }
+    add_tab(name, fd);
+    return 1;
+}
+
+int isdir (const char *name) {
+    struct stat statbuf;
+    int retval = stat(name, &statbuf);
+    if (retval != 0) {
+        return 0;
+    }
+    return S_ISDIR(statbuf.st_mode);
+}
+
+int add_tab_dir (const char *name) {
+    add_tab(name, 0);
+    static char buf[512];
+    snprintf(buf, sizeof buf, "CLICOLOR_FORCE=1 ls -G -l %s", name);
+    FILE *fh = popen(buf, "r");
+    int c;
+    while ((c = getc(fh)) != EOF) {
+        if (tabb->buf_len == tabb->buf_size) {
+            tabb->buf_size *= 2;
+            tabb->buf = realloc(tabb->buf, tabb->buf_size);
+        }
+        tabb->buf_len++;
+        tabb->buf[tabb->buf_len - 1] = c;
+    }
+    pclose(fh);
+    tabb->loaded = 1;
+    return 1;
 }
 
 void generate_tab_names () {
@@ -1553,13 +1591,16 @@ void parse_args (int argc, char **argv) {
     int error = 0;
     int i;
     for (i = optind; i < argc; i++) {
-        int fd = open(argv[i], O_RDONLY);
-        if (fd < 0) {
-            fprintf(stderr, "Can't open %s: %s\n", argv[i], strerror(errno));
-            error = 1;
-            continue;
+        int retval;
+        if (isdir(argv[i])) {
+            retval = add_tab_dir(argv[i]);
         }
-        add_tab(argv[i], fd);
+        else {
+            retval = add_tab_file(argv[i]);
+        }
+        if (!retval) {
+            error++;
+        }
     }
     if (error) {
         exit(1);
