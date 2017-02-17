@@ -53,6 +53,8 @@ next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
 mousewheel scroll
-split c files
 port to linux
+man page
+gpl it
+write not printf and collect entire line(s?) before outputting it to prevent flicker
 
