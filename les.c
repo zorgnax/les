@@ -134,6 +134,9 @@ int add_tab_dir (const char *name) {
         }
         tabb->buf_len++;
         tabb->buf[tabb->buf_len - 1] = c;
+        if (c == '\n') {
+            tabb->nlines++;
+        }
     }
     pclose(fh);
     tabb->loaded = 1;
