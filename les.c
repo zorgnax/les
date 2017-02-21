@@ -64,8 +64,16 @@ void set_tcattr () {
     tcsetattr(tty, TCSAFLUSH, &tcattr2);
 }
 
+void tstp () {
+    bye();
+    kill(0, SIGSTOP);
+}
+
 void cont () {
     set_tcattr();
+    printf("%s", enter_ca_mode);
+    printf("%s", cursor_invisible);
+    printf("%s", tparm(change_scroll_region, line1, lines - 2));
     if (pr) {
         prompt_draw();
     }
@@ -909,10 +917,8 @@ int main (int argc, char **argv) {
     signal2(SIGINT, interrupt);
     signal2(SIGQUIT, bye2);
     signal2(SIGCONT, cont);
+    signal2(SIGTSTP, tstp);
     signal2(SIGWINCH, winch);
-
-    printf("%s", enter_ca_mode);
-    printf("%s", cursor_invisible);
 
     tty = open("/dev/tty", O_RDONLY);
     tcgetattr(tty, &tcattr1);
@@ -923,6 +929,8 @@ int main (int argc, char **argv) {
     status_buf = malloc(status_buf_size);
 
     line1 = tabs_len == 1 ? 0 : 1;
+    printf("%s", enter_ca_mode);
+    printf("%s", cursor_invisible);
     printf("%s", tparm(change_scroll_region, line1, lines - 2));
 
     draw_tabs();
