@@ -340,7 +340,6 @@ void draw_line_nowrap (tline_t *tline) {
     }
     if (i == tline->end_pos) {
         printf("%s", clr_eol);
-        printf("\n");
         return;
     }
     for (; i < tline->end_pos;) {
@@ -796,7 +795,7 @@ void usage () {
         "\n"
         "Options:\n"
         "    -e=encoding   input file encoding\n"
-        "    -h            help text\n"
+        "    -h            help\n"
         "    -t=width      tab width (default 4)\n"
         "    -w            disable line wrap\n"
         "\n"
@@ -812,6 +811,8 @@ void usage () {
         "    l,→           go right 4 spaces\n"
         "    L             go right half a screen\n"
         "    q             quit\n"
+        "    t             go to next tab\n"
+        "    T             go to previous tab\n"
         "    u             go up half a screen\n"
         "    U             go up a screen\n"
         "    w             toggle line wrap\n"
