@@ -1,3 +1,4 @@
+CC = gcc
 LDLIBS = -lncurses -liconv
 
 all: les
@@ -8,10 +9,10 @@ all: les
 %.o:
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c $(filter %.c, $^) -o $@
 
-les: les.o charinfo.o readline2.o linewrap.o movement.o
+les: les.o charinfo.o prompt.o linewrap.o movement.o
 les.o: les.c les.h
 charinfo.o: charinfo.c les.h
-readline2.o: readline2.c les.h
+prompt.o: prompt.c les.h
 linewrap.o: linewrap.c les.h
 movement.o: movement.c les.h
 

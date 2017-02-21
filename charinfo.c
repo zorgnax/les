@@ -388,6 +388,17 @@ int strwidth (const char *str) {
     return width;
 }
 
+int strnwidth (const char *str, size_t len) {
+    int i, width = 0;
+    charinfo_t cinfo;
+    for (i = 0; i < len;) {
+        get_char_info(&cinfo, str + i);
+        width += cinfo.width;
+        i += cinfo.len;
+    }
+    return width;
+}
+
 void shorten (char *str, int n) {
     int i, j;
     int width = 0;

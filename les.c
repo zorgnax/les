@@ -47,6 +47,15 @@ void bye2 () {
     exit(1);
 }
 
+void interrupt () {
+    if (pr) {
+        prompt_done = 1;
+    }
+    else {
+        exit(1);
+    }
+}
+
 void set_tcattr () {
     tcattr2 = tcattr1;
     tcattr2.c_lflag &= ~(ICANON|ECHO);
@@ -57,6 +66,12 @@ void set_tcattr () {
 
 void cont () {
     set_tcattr();
+    if (pr) {
+        prompt_draw();
+    }
+    else {
+        draw_tab();
+    }
 }
 
 void add_tab (const char *name, int fd) {
@@ -391,7 +406,12 @@ void winch () {
     ioctl(tty, TIOCGWINSZ, &w);
     lines = w.ws_row;
     columns = w.ws_col;
-    draw_tab();
+    if (pr) {
+        prompt_draw();
+    }
+    else {
+        draw_tab();
+    }
 }
 
 void count_lines (char *buf, size_t len) {
@@ -472,7 +492,10 @@ void read_file () {
         memcpy(buf, tabb->stragglers, tabb->stragglers_len);
     }
     int nread = read(tabb->fd, buf + tabb->stragglers_len, sizeof buf - tabb->stragglers_len);
-    if (nread < 0 && errno != EAGAIN) {
+    if (errno == EAGAIN || errno == EINTR) {
+        return;
+    }
+    if (nread < 0) {
         perror("read");
         exit(1);
     }
@@ -522,6 +545,11 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
             if (buf[i] < 0x20) {
                 snprintf(ttybuf + ttybuf_len, sizeof ttybuf - ttybuf_len,
                     "^%c", 0x40 + buf[i]);
+                ttybuf_len += 2;
+                ttybuf_width += 2;
+            }
+            else if (buf[i] == 0x7f) {
+                snprintf(ttybuf + ttybuf_len, sizeof ttybuf - ttybuf_len, "^?");
                 ttybuf_len += 2;
                 ttybuf_width += 2;
             }
@@ -662,21 +690,21 @@ int read_key (char *buf, int len) {
             draw_tab();
             break;
         case '/':
-            readline2("foo: ");
+            search();
             break;
-        case -64 + 'D':
+        case -0x40 + 'D':
             move_forward(10000);
             break;
-        case -64 + 'H':
+        case -0x40 + 'H':
             move_left(1);
             break;
-        case -64 + 'L':
+        case -0x40 + 'L':
             move_right(1);
             break;
-        case -64 + 'R':
+        case -0x40 + 'R':
             draw_tab();
             break;
-        case -64 + 'U':
+        case -0x40 + 'U':
             move_backward(10000);
             break;
         default:
@@ -694,13 +722,13 @@ int read_key (char *buf, int len) {
     else if (strncmp(buf, "\e[D", 3) == 0) {
         move_left(4);
     }
-    else if (strncmp(buf, "\e[1;2D", 3) == 0) {
+    else if (strncmp(buf, "\eb", 2) == 0) {
         move_left(columns / 2);
     }
     else if (strncmp(buf, "\e[C", 3) == 0) {
         move_right(4);
     }
-    else if (strncmp(buf, "\e[1;2C", 3) == 0) {
+    else if (strncmp(buf, "\ef", 2) == 0) {
         move_right(columns / 2);
     }
     else {
@@ -713,9 +741,12 @@ int read_key (char *buf, int len) {
 }
 
 void read_terminal () {
-    char buf[256];
+    static char buf[256];
     int nread = read(tty, buf, sizeof buf);
-    if (nread < 0 && errno != EAGAIN) {
+    if (nread < 0 && (errno == EAGAIN || errno == EINTR)) {
+        return;
+    }
+    if (nread < 0) {
         perror("read");
         exit(1);
     }
@@ -743,7 +774,10 @@ void read_loop () {
             nfds = tty > tabb->fd ? (tty + 1) : (tabb->fd + 1);
         }
         retval = select(nfds, &fds, NULL, NULL, NULL);
-        if (retval < 0 && errno != EINTR) {
+        if (retval < 0 && (errno == EAGAIN || errno == EINTR)) {
+            continue;
+        }
+        if (retval < 0) {
             perror("select");
             exit(1);
         }
@@ -846,6 +880,12 @@ void parse_args (int argc, char **argv) {
     }
 }
 
+void signal2 (int sig, void (*func)(int)) {
+    struct sigaction *sa = calloc(1, sizeof (struct sigaction));
+    sa->sa_handler = func;
+    sigaction(sig, sa, 0);
+}
+
 int main (int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -864,10 +904,10 @@ int main (int argc, char **argv) {
     }
 
     atexit(bye);
-    signal(SIGINT, bye2);
-    signal(SIGQUIT, bye2);
-    signal(SIGCONT, cont);
-    signal(SIGWINCH, winch);
+    signal2(SIGINT, interrupt);
+    signal2(SIGQUIT, bye2);
+    signal2(SIGCONT, cont);
+    signal2(SIGWINCH, winch);
 
     printf("%s", enter_ca_mode);
     printf("%s", cursor_invisible);

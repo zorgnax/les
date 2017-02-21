@@ -39,16 +39,28 @@ typedef struct {
     size_t end_pos;
 } tline_t;
 
-#define UTF8_LENGTH(c)       \
-    (c & 0x80) == 0x00 ? 1 : \
-    (c & 0xc0) == 0x80 ? 1 : \
-    (c & 0xe0) == 0xc0 ? 2 : \
-    (c & 0xf0) == 0xe0 ? 3 : \
-    (c & 0xf8) == 0xf0 ? 4 : \
-    (c & 0xfc) == 0xf8 ? 5 : \
-    (c & 0xfe) == 0xfc ? 6 : \
-                         6
+typedef struct {
+    char *buf;
+    size_t len;
+    size_t size;
+    const char *prompt;
+    size_t prompt_len;
+    int nlines;
+    int nlines2;
+    size_t cursor;
+} prompt_t;
 
+#define UTF8_LENGTH(c)        \
+    ((c & 0x80) == 0x00 ? 1 : \
+     (c & 0xc0) == 0x80 ? 1 : \
+     (c & 0xe0) == 0xc0 ? 2 : \
+     (c & 0xf0) == 0xe0 ? 3 : \
+     (c & 0xf8) == 0xf0 ? 4 : \
+     (c & 0xfc) == 0xf8 ? 5 : \
+     (c & 0xfe) == 0xfc ? 6 : \
+                          6)
+
+extern int tty;
 extern int line1;
 tab_t *tabb;
 extern int line_wrap;
@@ -56,6 +68,8 @@ extern int tab_width;
 extern tline_t *tlines;
 extern size_t tlines_len;
 extern size_t tlines_size;
+extern prompt_t *pr;
+extern int prompt_done;
 
 /* les.c */
 void draw_tab ();
@@ -65,10 +79,12 @@ void draw_status ();
 /* charinfo.c */
 void shorten (char *str, int n);
 int strwidth (const char *str);
+int strnwidth (const char *str, size_t len);
 void get_char_info (charinfo_t *cinfo, const char *buf);
 
-/* readline.c */
-char *readline2 (const char *prompt);
+/* prompt.c */
+void search ();
+void prompt_draw ();
 
 /* linewrap.c */
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);

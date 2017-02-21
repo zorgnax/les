@@ -9,18 +9,11 @@ Unicode
 
 The main reason you would need ot handle unicode in a program like
 this is to get the right number of characters on a line. This
-requires the program to know what characters it has in its buffer.
-It can't just spit back whatever was given to it. This program will
-assume the input file was utf-8. if it isn't then you can give the
-correct encoding with the -e (encoding) option.
-
-Even more than knowing the amount of characters is knowing the width
-of the characters, since unicode characters can be double wide or
-zero width. libc includes wcwidth() and wcswidth() to do the job,
-but it requires you convert your string into a wchar_t string.
-I prefer to maintain text internally as a byte string of utf-8
-characters, so I maintain a table of character widths in the source
-of the program.
+requires the program to know what characters it has in its buffer,
+the number of bytes in each character, and the screen width of the
+character (some characters in unicode take 2 or 0 widths).  This
+program will assume the input file was utf-8. if it isn't, then you
+can give the correct encoding with the -e (encoding) option.
 
 Highlights
 ==========
@@ -41,7 +34,7 @@ Sometimes when less is word wrapped you have to press j multiple times to go dow
 
 While less is loading the first page, you can not enter keyboard commands.
 
-Tabs.
+Tabbed buffer list.
 
 If you have line wrap and you move right, less will turn off line wrap and move right, which looks confusing.
 
@@ -54,7 +47,10 @@ next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
 mousewheel scroll
 port to linux
-man page
+create a man page
 gpl it
 write not printf and collect entire line(s?) before outputting it to prevent flicker
+piping man pages to it doesn't look right
+bg then fg process
+move left and right doesn't work anymore
 
