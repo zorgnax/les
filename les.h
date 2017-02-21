@@ -95,6 +95,10 @@ void move_forward (int n);
 void move_backward (int n);
 void move_start ();
 void move_end ();
+void move_left (int n);
+void move_right (int n);
+void move_line_left ();
+void move_line_right ();
 
 #endif
 

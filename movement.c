@@ -148,3 +148,44 @@ void move_end () {
     move_backward(lines - line1 - 1);
 }
 
+void move_left (int n) {
+    if (tabb->column == 0) {
+        return;
+    }
+    tabb->column -= n;
+    if (tabb->column < 0) {
+        tabb->column = 0;
+    }
+    draw_tab();
+}
+
+void move_right (int n) {
+    tabb->column += n;
+    draw_tab();
+}
+
+void move_line_left () {
+    if (tabb->column == 0) {
+        return;
+    }
+    tabb->column = 0;
+    draw_tab();
+}
+
+void move_line_right () {
+    int i;
+    int width = 0;
+    for (i = 0; i < tlines_len; i++) {
+        int width2 = strnwidth(tabb->buf + tlines[i].pos, tlines[i].end_pos - tlines[i].pos);
+        if (width2 > width) {
+            width = width2;
+        }
+    }
+    int column = width - columns;
+    if (column < 0) {
+        column = 0;
+    }
+    tabb->column = column;
+    draw_tab();
+}
+

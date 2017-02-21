@@ -38,6 +38,8 @@ Tabbed buffer list.
 
 If you have line wrap and you move right, less will turn off line wrap and move right, which looks confusing.
 
+Left and right movement are bound to h and l like one would expect.
+
 Todo
 ====
 
@@ -53,5 +55,4 @@ write not printf and collect entire line(s?) before outputting it to prevent fli
 piping man pages to it doesn't look right
 bg then fg process
 line numbers for directory inputs
-pgup pgdn home and end needs key binds
 

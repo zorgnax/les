@@ -608,22 +608,6 @@ void close_tab () {
     draw_tab();
 }
 
-void move_left (int n) {
-    if (tabb->column == 0) {
-        return;
-    }
-    tabb->column -= n;
-    if (tabb->column < 0) {
-        tabb->column = 0;
-    }
-    draw_tab();
-}
-
-void move_right (int n) {
-    tabb->column += n;
-    draw_tab();
-}
-
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf);
@@ -730,6 +714,18 @@ int read_key (char *buf, int len) {
     else if (strncmp(buf, "\ef", 2) == 0) {
         move_right(columns / 2);
     }
+    else if (strncmp(buf, "\e[H", 3) == 0) {
+        move_line_left();
+    }
+    else if (strncmp(buf, "\e[F", 3) == 0) {
+        move_line_right();
+    }
+    else if (strncmp(buf, "\e[5~", 4) == 0) {
+        move_backward(lines - line1 - 2);
+    }
+    else if (strncmp(buf, "\e[6~", 4) == 0) {
+        move_forward(lines - line1 - 2);
+    }
     else {
         draw_status();
     }
@@ -801,10 +797,10 @@ void usage () {
         "\n"
         "Key Binds:\n"
         "    d             go down half a screen\n"
-        "    D             go down a screen\n"
+        "    D,⇟           go down a screen\n"
         "    g             go to the top of the file\n"
         "    G             go to the bottom of the file\n"
-        "    h,←           go left 4 spaced\n"
+        "    h,←           go left 4 spaces\n"
         "    H             go left half a screen\n"
         "    j,↓           go down one line\n"
         "    k,↑           go up one line\n"
@@ -814,8 +810,10 @@ void usage () {
         "    t             go to next tab\n"
         "    T             go to previous tab\n"
         "    u             go up half a screen\n"
-        "    U             go up a screen\n"
+        "    U,⇞           go up a screen\n"
         "    w             toggle line wrap\n"
+        "    ⇤             go left all the way\n"
+        "    ⇥             go right all the way\n"
     );
 }
 
