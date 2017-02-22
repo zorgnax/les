@@ -309,6 +309,31 @@ void draw_status () {
     printf("%s", exit_attribute_mode);
 }
 
+// In man page output, text is underlined by placing and underscore
+// followed by a backspace followed by the character to be underlined.
+// text is bolded by placing the character followed by a backspace
+// then the same character again.
+void draw_backspace (charinfo_t *cinfo, char *buf, int i) {
+    if (i == 0) {
+        cinfo->width = 0;
+        cinfo->len = 1;
+        return;
+    }
+    if (buf[i - 1] == '_') {
+        get_char_info(cinfo, buf + i + 1);
+        printf("\b%s%.*s%s", enter_underline_mode, cinfo->len, buf + i + 1, exit_underline_mode);
+        cinfo->len += 1;
+    }
+    else if (buf[i - 1] == buf[i + 1]) {
+        get_char_info(cinfo, buf + i + 1);
+        printf("\b%s%.*s%s", enter_bold_mode, cinfo->len, buf + i + 1, exit_attribute_mode);
+        cinfo->len += 1;
+    }
+    else {
+        printf("\b");
+    }
+}
+
 void draw_line_wrap (tline_t *tline) {
     charinfo_t cinfo;
     int i;
@@ -320,6 +345,9 @@ void draw_line_wrap (tline_t *tline) {
         }
         else if (tabb->buf[i] == '\t') {
             printf("%*s", tab_width, "");
+        }
+        else if (tabb->buf[i] == '\b') {
+            draw_backspace(&cinfo, tabb->buf, i);
         }
         else {
             printf("%.*s", cinfo.len, tabb->buf + i);
@@ -366,6 +394,9 @@ void draw_line_nowrap (tline_t *tline) {
         }
         if (tabb->buf[i] == '\t') {
             printf("%*s", tab_width, "");
+        }
+        else if (tabb->buf[i] == '\b') {
+            draw_backspace(&cinfo, tabb->buf, i);
         }
         else {
             printf("%.*s", cinfo.len, tabb->buf + i);
