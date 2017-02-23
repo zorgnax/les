@@ -38,9 +38,10 @@ int tab_width = 4;
 
 void bye () {
     tcsetattr(tty, TCSANOW, &tcattr1);
-    printf("%s", tparm(change_scroll_region, 0, lines - 1));
-    printf("%s", cursor_normal);
-    printf("%s", exit_ca_mode);
+    stage_cat(tparm(change_scroll_region, 0, lines - 1));
+    stage_cat(cursor_normal);
+    stage_cat(exit_ca_mode);
+    stage_write();
 }
 
 void bye2 () {
@@ -71,11 +72,11 @@ void tstp () {
 
 void cont () {
     set_tcattr();
-    printf("%s", enter_ca_mode);
-    printf("%s", cursor_invisible);
-    printf("%s", tparm(change_scroll_region, line1, lines - 2));
+    stage_cat(enter_ca_mode);
+    stage_cat(cursor_invisible);
+    stage_cat(tparm(change_scroll_region, line1, lines - 2));
     if (pr) {
-        prompt_draw();
+        draw_prompt();
     }
     else {
         draw_tab();
@@ -181,13 +182,13 @@ void generate_tab_names () {
     }
 }
 
-void draw_tabs () {
+void stage_tabs () {
     if (tabs_len == 1) {
         return;
     }
     generate_tab_names();
-    printf("%s", tparm(cursor_address, 0, 0));
-    printf("%s", tparm(set_a_background, 232 + 2));
+    stage_cat(tparm(cursor_address, 0, 0));
+    stage_cat(tparm(set_a_background, 232 + 2));
     int i;
     int width = 0;
     for (i = 0; i < tabs_len; i++) {
@@ -197,27 +198,27 @@ void draw_tabs () {
             break;
         }
         if (i == current_tab) {
-            printf("%s", enter_bold_mode);
-            printf("%s", name);
-            printf("%s", exit_attribute_mode);
-            printf("%s", tparm(set_a_background, 232 + 2));
+            stage_cat(enter_bold_mode);
+            stage_cat(name);
+            stage_cat(exit_attribute_mode);
+            stage_cat(tparm(set_a_background, 232 + 2));
         }
         else {
-            printf("%s", name);
+            stage_cat(name);
         }
         width += width2;
         if (width + 2 > columns) {
             break;
         }
         if (i < tabs_len - 1) {
-            printf("  ");
+            stage_cat("  ");
         }
     }
     for (i = 0; i < columns - width; i++) {
-        printf(" ");
+        stage_cat(" ");
     }
-    printf("%s", exit_attribute_mode);
-    printf("\n");
+    stage_cat(exit_attribute_mode);
+    stage_cat("\n");
 }
 
 char *human_readable (double size) {
@@ -239,11 +240,11 @@ char *human_readable (double size) {
     return buf;
 }
 
-void draw_status () {
+void stage_status () {
     static char right_buf[256];
     int retval;
 
-    printf("%s", tparm(cursor_address, lines - 1, 0));
+    stage_cat(tparm(cursor_address, lines - 1, 0));
     int right_len = 0;
     int right_width = 0;
     if (ttybuf_len) {
@@ -289,31 +290,36 @@ void draw_status () {
         status_buf_len++;
     }
 
-    printf("%s", tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
+    stage_cat(tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
     width = 0;
     j = 0;
     for (i = 0; i < status_buf_len;) {
         get_char_info(&cinfo, status_buf + i);
         if (j == 0 && (!tabb->buf_len || width >= columns * tabb->pos / tabb->buf_len)) {
-            printf("%s", tparm(set_a_background, 16 + 36*0 + 6*1 + 5));
+            stage_cat(tparm(set_a_background, 16 + 36*0 + 6*1 + 5));
             j++;
         }
         else if (j == 1 && tabb->buf_len && width >= columns * tlines[tlines_len - 1].end_pos / tabb->buf_len) {
-            printf("%s", exit_attribute_mode);
+            stage_cat(exit_attribute_mode);
             j++;
         }
-        printf("%.*s", cinfo.len, status_buf + i);
+        stage_ncat(status_buf + i, cinfo.len);
         width += cinfo.width;
         i += cinfo.len;
     }
-    printf("%s", exit_attribute_mode);
+    stage_cat(exit_attribute_mode);
+}
+
+void draw_status () {
+    stage_status();
+    stage_write();
 }
 
 // In man page output, text is underlined by placing and underscore
 // followed by a backspace followed by the character to be underlined.
 // text is bolded by placing the character followed by a backspace
 // then the same character again.
-void draw_backspace (charinfo_t *cinfo, char *buf, int i) {
+void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
     if (i == 0) {
         cinfo->width = 0;
         cinfo->len = 1;
@@ -321,20 +327,26 @@ void draw_backspace (charinfo_t *cinfo, char *buf, int i) {
     }
     if (buf[i - 1] == '_') {
         get_char_info(cinfo, buf + i + 1);
-        printf("\b%s%.*s%s", enter_underline_mode, cinfo->len, buf + i + 1, exit_underline_mode);
+        stage_cat("\b");
+        stage_cat(enter_underline_mode);
+        stage_ncat(buf + i + 1, cinfo->len);
+        stage_cat(exit_underline_mode);
         cinfo->len += 1;
     }
     else if (buf[i - 1] == buf[i + 1]) {
         get_char_info(cinfo, buf + i + 1);
-        printf("\b%s%.*s%s", enter_bold_mode, cinfo->len, buf + i + 1, exit_attribute_mode);
+        stage_cat("\b");
+        stage_cat(enter_bold_mode);
+        stage_ncat(buf + i + 1, cinfo->len);
+        stage_cat(exit_attribute_mode);
         cinfo->len += 1;
     }
     else {
-        printf("\b");
+        stage_cat("\b");
     }
 }
 
-void draw_line_wrap (tline_t *tline) {
+void stage_line_wrap (tline_t *tline) {
     charinfo_t cinfo;
     int i;
     int width = 0;
@@ -344,23 +356,26 @@ void draw_line_wrap (tline_t *tline) {
             break;
         }
         else if (tabb->buf[i] == '\t') {
-            printf("%*s", tab_width, "");
+            int j;
+            for (j = 0; j < tab_width; j++) {
+                stage_cat(" ");
+            }
         }
         else if (tabb->buf[i] == '\b') {
-            draw_backspace(&cinfo, tabb->buf, i);
+            stage_backspace(&cinfo, tabb->buf, i);
         }
         else {
-            printf("%.*s", cinfo.len, tabb->buf + i);
+            stage_ncat(tabb->buf + i, cinfo.len);
         }
         width += cinfo.width;
         i += cinfo.len;
     }
     if (width < columns) {
-        printf("%s", clr_eol);
+        stage_cat(clr_eol);
     }
 }
 
-void draw_line_nowrap (tline_t *tline) {
+void stage_line_nowrap (tline_t *tline) {
     int i;
     int e = 0;
     int width = 0;
@@ -372,13 +387,13 @@ void draw_line_nowrap (tline_t *tline) {
         }
         if (tabb->buf[i] == 0x1b) {
             e++;
-            printf("%.*s", cinfo.len, tabb->buf + i);
+            stage_ncat(tabb->buf + i, cinfo.len);
         }
         width += cinfo.width;
         i += cinfo.len;
     }
     if (i == tline->end_pos) {
-        printf("%s", clr_eol);
+        stage_cat(clr_eol);
         return;
     }
     for (; i < tline->end_pos;) {
@@ -393,53 +408,61 @@ void draw_line_nowrap (tline_t *tline) {
             break;
         }
         if (tabb->buf[i] == '\t') {
-            printf("%*s", tab_width, "");
+            int j;
+            for (j = 0; j < tab_width; j++) {
+                stage_cat(" ");
+            }
         }
         else if (tabb->buf[i] == '\b') {
-            draw_backspace(&cinfo, tabb->buf, i);
+            stage_backspace(&cinfo, tabb->buf, i);
         }
         else {
-            printf("%.*s", cinfo.len, tabb->buf + i);
+            stage_ncat(tabb->buf + i, cinfo.len);
         }
         width += cinfo.width;
         i += cinfo.len;
     }
     if (width < columns + tabb->column) {
-        printf("%s", clr_eol);
+        stage_cat(clr_eol);
     }
     if (e) {
-        printf("%s", exit_attribute_mode);
+        stage_cat(exit_attribute_mode);
     }
 }
 
-void draw_tab2 (int n, tline_t *tlines, size_t tlines_len) {
+void stage_tab2 (int n, tline_t *tlines, size_t tlines_len) {
     int i;
     for (i = 0; i < n; i++) {
         if (i < tlines_len) {
             if (line_wrap) {
-                draw_line_wrap(tlines + i);
+                stage_line_wrap(tlines + i);
             }
             else {
-                draw_line_nowrap(tlines + i);
+                stage_line_nowrap(tlines + i);
             }
         }
         else {
-            printf("%s", tparm(set_a_foreground, 4));
-            printf("~");
-            printf("%s", clr_eol);
-            printf("%s", exit_attribute_mode);
+            stage_cat(tparm(set_a_foreground, 4));
+            stage_cat("~");
+            stage_cat(clr_eol);
+            stage_cat(exit_attribute_mode);
         }
         if (i != n - 1) {
-            printf("\n");
+            stage_cat("\n");
         }
     }
 }
 
-void draw_tab () {
-    printf("%s", tparm(cursor_address, line1, 0));
+void stage_tab () {
+    stage_cat(tparm(cursor_address, line1, 0));
     get_tlines(tabb->buf, tabb->buf_len, tabb->pos, lines - line1 - 1, &tlines, &tlines_len, &tlines_size);
-    draw_tab2(lines - line1 - 1, tlines, tlines_len);
-    draw_status();
+    stage_tab2(lines - line1 - 1, tlines, tlines_len);
+    stage_status();
+}
+
+void draw_tab () {
+    stage_tab();
+    stage_write();
 }
 
 void winch () {
@@ -448,9 +471,10 @@ void winch () {
     lines = w.ws_row;
     columns = w.ws_col;
     if (pr) {
-        prompt_draw();
+        draw_prompt();
     }
     else {
+        stage_tabs();
         draw_tab();
     }
 }
@@ -533,7 +557,7 @@ void read_file () {
         memcpy(buf, tabb->stragglers, tabb->stragglers_len);
     }
     int nread = read(tabb->fd, buf + tabb->stragglers_len, sizeof buf - tabb->stragglers_len);
-    if (errno == EAGAIN || errno == EINTR) {
+    if (nread < 0 && (errno == EAGAIN || errno == EINTR)) {
         return;
     }
     if (nread < 0) {
@@ -606,14 +630,14 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
 void next_tab () {
     current_tab = (current_tab + 1) % tabs_len;
     tabb = tabs[current_tab];
-    draw_tabs();
+    stage_tabs();
     draw_tab();
 }
 
 void prev_tab () {
     current_tab = current_tab > 0 ? (current_tab - 1) : (tabs_len - 1);
     tabb = tabs[current_tab];
-    draw_tabs();
+    stage_tabs();
     draw_tab();
 }
 
@@ -643,10 +667,10 @@ void close_tab () {
 
     if (tabs_len == 1) {
         line1 = 0;
-        printf("%s", tparm(change_scroll_region, line1, lines - 1));
+        stage_cat(tparm(change_scroll_region, line1, lines - 1));
     }
 
-    draw_tabs();
+    stage_tabs();
     draw_tab();
 }
 
@@ -727,6 +751,7 @@ int read_key (char *buf, int len) {
             move_right(1);
             break;
         case -0x40 + 'R':
+            stage_tabs();
             draw_tab();
             break;
         case -0x40 + 'U':
@@ -828,7 +853,7 @@ void read_loop () {
 }
 
 void usage () {
-    printf(
+    stage_cat(
         "Usage: les [-hw] [-e=encoding] [-t=width] file...\n"
         "\n"
         "Options:\n"
@@ -857,6 +882,7 @@ void usage () {
         "    ⇤             go left all the way\n"
         "    ⇥             go right all the way\n"
     );
+    stage_write();
 }
 
 void set_input_encoding (char *encoding) {
@@ -921,6 +947,11 @@ void parse_args (int argc, char **argv) {
     }
 }
 
+// sigaction is used because I want there to be a read() call
+// blocking till it has input, I hit ^C, the read call should then
+// return EINTR, check values, then resume. The standard signal()
+// function will return from the interrupt handler to the same read
+// call, with no chance to affect it.
 void signal2 (int sig, void (*func)(int)) {
     struct sigaction *sa = calloc(1, sizeof (struct sigaction));
     sa->sa_handler = func;
@@ -928,12 +959,11 @@ void signal2 (int sig, void (*func)(int)) {
 }
 
 int main (int argc, char **argv) {
-    setvbuf(stdout, NULL, _IONBF, 0);
-
     if (!isatty(0)) {
         add_tab("stdin", 0);
     }
 
+    stage_init();
     parse_args(argc, argv);
     tabb = tabs[current_tab];
 
@@ -955,16 +985,18 @@ int main (int argc, char **argv) {
     tcgetattr(tty, &tcattr1);
     set_tcattr();
 
-    status_buf_size = columns * 6;
     status_buf_len = 0;
+    status_buf_size = columns * 6;
     status_buf = malloc(status_buf_size);
 
     line1 = tabs_len == 1 ? 0 : 1;
-    printf("%s", enter_ca_mode);
-    printf("%s", cursor_invisible);
-    printf("%s", tparm(change_scroll_region, line1, lines - 2));
 
-    draw_tabs();
+    stage_cat(enter_ca_mode);
+    stage_cat(cursor_invisible);
+    stage_cat(tparm(change_scroll_region, line1, lines - 2));
+    stage_write();
+
+    stage_tabs();
     draw_tab();
 
     read_loop();

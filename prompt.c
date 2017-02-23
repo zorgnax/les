@@ -10,7 +10,7 @@ prompt_t *pr = NULL;
 prompt_t *spr = NULL;
 int prompt_done = 0;
 
-void prompt_draw_line (tline_t *tline) {
+void stage_prompt_line (tline_t *tline) {
     charinfo_t cinfo;
     int i;
     int width = 0;
@@ -20,24 +20,27 @@ void prompt_draw_line (tline_t *tline) {
             break;
         }
         else if (pr->buf[i] == '\t') {
-            printf("%*s", tab_width, "");
+            int j;
+            for (j = 0; j < tab_width; j++) {
+                stage_cat(" ");
+            }
         }
         else {
-            printf("%.*s", cinfo.len, pr->buf + i);
+            stage_ncat(pr->buf + i, cinfo.len);
         }
         width += cinfo.width;
         i += cinfo.len;
     }
     if (width < columns) {
-        printf("%s", clr_eol);
+        stage_cat(clr_eol);
     }
 }
 
-void prompt_draw () {
-    printf("%s", tparm(cursor_address, lines - pr->nlines, 0));
+void draw_prompt () {
+    stage_cat(tparm(cursor_address, lines - pr->nlines, 0));
     get_tlines(pr->buf, pr->len, 0, 0, &tlines, &tlines_len, &tlines_size);
     if (tlines_len < pr->nlines2) {
-        printf("%s", clr_eos);
+        stage_cat(clr_eos);
     }
     pr->nlines2 = tlines_len;
     if (tlines_len > pr->nlines) {
@@ -45,9 +48,9 @@ void prompt_draw () {
     }
     int i;
     for (i = 0; i < tlines_len; i++) {
-        prompt_draw_line(tlines + i);
+        stage_prompt_line(tlines + i);
         if (i != tlines_len - 1) {
-            printf("\n");
+            stage_cat("\n");
         }
     }
     int cursory = 0;
@@ -65,9 +68,10 @@ void prompt_draw () {
     }
     if (cursory + 1 > pr->nlines) {
         pr->nlines++;
-        printf("\n");
+        stage_cat("\n");
     }
-    printf("%s", tparm(cursor_address, lines - pr->nlines + cursory, cursorx));
+    stage_cat(tparm(cursor_address, lines - pr->nlines + cursory, cursorx));
+    stage_write();
 }
 
 void prompt_left () {
@@ -204,7 +208,7 @@ void prompt_kill_backward () {
     pr->cursor -= len;
 }
 
-void prompt_addc (char *buf, int len) {
+void addc_prompt (char *buf, int len) {
     int i;
     if (pr->len + len >= pr->size) {
         pr->size *= 2;
@@ -220,11 +224,11 @@ void prompt_addc (char *buf, int len) {
     pr->cursor += len;
 }
 
-int prompt_getc (char *buf, int len) {
+int getc_prompt (char *buf, int len) {
     unsigned char c = buf[0];
     if ((c > 0x1f && c < 0x7f) || (c > 0x7f)) {
         int len2 = UTF8_LENGTH(c);
-        prompt_addc(buf, len2);
+        addc_prompt(buf, len2);
         return len2;
     }
     if (strncmp(buf, "\e[D", 3) == 0) {
@@ -272,25 +276,27 @@ int prompt_getc (char *buf, int len) {
     return len;
 }
 
-void prompt_gets1 () {
+void gets1_prompt () {
     pr->len = pr->prompt_len;
     pr->cursor = pr->len;
     pr->nlines = 1;
-    printf("%s", tparm(change_scroll_region, 0, lines - 1));
-    printf("%s", cursor_normal);
-    printf("%s", tparm(cursor_address, lines - 1, 0));
-    printf("\n%s", pr->prompt);
+    stage_cat(tparm(change_scroll_region, 0, lines - 1));
+    stage_cat(cursor_normal);
+    stage_cat(tparm(cursor_address, lines - 1, 0));
+    stage_cat("\n");
+    stage_cat(pr->prompt);
+    stage_write();
 }
 
-void prompt_gets2 () {
+void gets2_prompt () {
     prompt_done = 0;
-    printf("%s", cursor_invisible);
-    printf("%s", tparm(change_scroll_region, line1, lines - 2));
+    stage_cat(cursor_invisible);
+    stage_cat(tparm(change_scroll_region, line1, lines - 2));
     draw_tab();
 }
 
-void prompt_gets () {
-    prompt_gets1();
+void gets_prompt () {
+    gets1_prompt();
     static char buf[256];
     int len = 0;
     int i, nread, clen, processed;
@@ -319,16 +325,16 @@ void prompt_gets () {
                 len = nread - i;
                 break;
             }
-            processed = prompt_getc(buf + i, nread - i);
+            processed = getc_prompt(buf + i, nread - i);
             i += processed;
         }
-        prompt_draw();
+        draw_prompt();
     }
     end:
-    prompt_gets2();
+    gets2_prompt();
 }
 
-prompt_t *prompt_init (const char *prompt) {
+prompt_t *init_prompt (const char *prompt) {
     prompt_t *pr = malloc(sizeof (prompt_t));
     pr->prompt = prompt;
     pr->prompt_len = strlen(prompt);
@@ -343,10 +349,10 @@ prompt_t *prompt_init (const char *prompt) {
 
 void search () {
     if (!spr) {
-        spr = prompt_init("foo: ");
+        spr = init_prompt("foo: ");
     }
     pr = spr;
-    prompt_gets();
+    gets_prompt();
     pr = NULL;
 }
 

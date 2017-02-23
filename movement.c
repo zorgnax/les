@@ -46,16 +46,11 @@ void move_forward_short (int n) {
         tlines[tlines_len - 1] = tlines2[i];
     }
     tabb->pos = tlines[0].pos;
-    if (m > (lines - line1 - 1) / 3) {
-        draw_tab();
-    }
-    else {
-        printf("%s", cursor_up);
-        printf("%s", tparm(parm_index, m));
-        printf("%s", tparm(cursor_address, lines - 1 - m, 0));
-        draw_tab2(m, tlines2, tlines2_len);
-        draw_status();
-    }
+    stage_cat(cursor_up);
+    stage_cat(tparm(parm_index, m));
+    stage_cat(tparm(cursor_address, lines - 1 - m, 0));
+    stage_tab2(m, tlines2, tlines2_len);
+    draw_status();
 }
 
 void move_forward (int n) {
@@ -105,10 +100,6 @@ void move_backward (int n) {
             tabb->line--;
         }
     }
-    if (m >= (lines - line1 - 1) / 3) {
-        draw_tab();
-        return;
-    }
     for (i = 0; i < m; i++) {
         tlines2[m - i - 1] = tlines3[i];
     }
@@ -123,9 +114,9 @@ void move_backward (int n) {
         tlines[i] = tlines2[i];
     }
 
-    printf("%s", tparm(cursor_address, line1, 0));
-    printf("%s", tparm(parm_rindex, m));
-    draw_tab2(m, tlines2, tlines2_len);
+    stage_cat(tparm(cursor_address, line1, 0));
+    stage_cat(tparm(parm_rindex, m));
+    stage_tab2(m, tlines2, tlines2_len);
     draw_status();
 }
 

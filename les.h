@@ -62,7 +62,7 @@ typedef struct {
 
 extern int tty;
 extern int line1;
-tab_t *tabb;
+extern tab_t *tabb;
 extern int line_wrap;
 extern int tab_width;
 extern tline_t *tlines;
@@ -73,7 +73,7 @@ extern int prompt_done;
 
 /* les.c */
 void draw_tab ();
-void draw_tab2 (int n, tline_t *tlines, size_t tlines_len);
+void stage_tab2 (int n, tline_t *tlines, size_t tlines_len);
 void draw_status ();
 
 /* charinfo.c */
@@ -84,7 +84,7 @@ void get_char_info (charinfo_t *cinfo, const char *buf);
 
 /* prompt.c */
 void search ();
-void prompt_draw ();
+void draw_prompt ();
 
 /* linewrap.c */
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
@@ -99,6 +99,12 @@ void move_left (int n);
 void move_right (int n);
 void move_line_left ();
 void move_line_right ();
+
+/* stage.c */
+void stage_init ();
+void stage_cat (const char *str);
+void stage_ncat (const char *str, size_t n);
+void stage_write ();
 
 #endif
 
