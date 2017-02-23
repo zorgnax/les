@@ -75,6 +75,7 @@ extern int prompt_done;
 void draw_tab ();
 void stage_tab2 (int n, tline_t *tlines, size_t tlines_len);
 void draw_status ();
+void stage_tabs ();
 
 /* charinfo.c */
 void shorten (char *str, int n);
@@ -88,6 +89,8 @@ void draw_prompt ();
 
 /* linewrap.c */
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
+void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
+void get_nowrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 int prev_line (char *buf, size_t len, size_t pos, int n);
 
 /* movement.c */

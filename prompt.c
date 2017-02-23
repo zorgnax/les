@@ -38,7 +38,8 @@ void stage_prompt_line (tline_t *tline) {
 
 void draw_prompt () {
     stage_cat(tparm(cursor_address, lines - pr->nlines, 0));
-    get_tlines(pr->buf, pr->len, 0, 0, &tlines, &tlines_len, &tlines_size);
+    tlines_len = 0;
+    get_wrap_tlines(pr->buf, pr->len, 0, 0, &tlines, &tlines_len, &tlines_size);
     if (tlines_len < pr->nlines2) {
         stage_cat(clr_eos);
     }
@@ -292,6 +293,7 @@ void gets2_prompt () {
     prompt_done = 0;
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
+    stage_tabs();
     draw_tab();
 }
 
