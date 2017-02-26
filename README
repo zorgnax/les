@@ -2,17 +2,17 @@ les
 ===
 
 This is a pager program similar to less and more. It is written in
-C using the terminfo and iconv libraries.
+C using the terminfo, iconv, and pcre2 libraries.
 
 Unicode
 =======
 
-The main reason this program needs to handle unicode is to get the
-right number of characters on a line. This requires the program to
-know the number of bytes in each character, and the screen width
-of the character (some characters in unicode take 0, 1, or 2 widths).
-This program will assume the input file was utf-8. if it isn't,
-then you can give the correct encoding with the -e (encoding) option.
+The reason this program needs to handle Unicode is to get the right
+number of characters on a line. This requires the program to know
+the number of bytes in each character, and the screen width of the
+character (characters in Unicode can take 0, 1, or 2 widths).  This
+program will assume the input file was UTF-8. if it isn't, then you
+can give the correct encoding with the -e (encoding) option.
 
 Highlights
 ==========
@@ -41,16 +41,18 @@ to your .gitconfig:
 Improvements Over less
 ======================
 
-In less, Ctrl-C doesn't close the program.
+les shows your progress through a file with a colored bar in the status line.
+
+les shows the list of opened files in a tabbed list at the top of the screen.
+
+les allows keyboard commands while loading the file.
+
+les will close the program when Ctrl-C is pressed.
 
 In less, lines are wrapped in the middle of a word.
 
 In less, you sometimes have to press j multiple times to go down
 one wrapped line.
-
-In less, you cannot enter keyboard commands while the first screen is loading.
-
-In less, there is no tabbed buffer list.
 
 In less, if the line is wrapped and you move right, word wrap is
 turned off and you move right, which shuffles the screen and looks

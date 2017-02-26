@@ -29,7 +29,6 @@ int tty;
 struct termios tcattr1, tcattr2;
 char ttybuf[256];
 size_t ttybuf_len = 0;
-size_t ttybuf_width = 0;
 int line1;
 tline_t *tlines = NULL;
 size_t tlines_len = 0;
@@ -251,7 +250,7 @@ void stage_status () {
         retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
             " %.*s", (int) ttybuf_len, ttybuf);
         right_len += retval;
-        right_width += ttybuf_width + 1;
+        right_width += strnwidth(right_buf, right_len);
     }
     char *hrsize = human_readable(tabb->buf_len);
     retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
@@ -544,7 +543,7 @@ void add_encoded_input (char *buf, size_t buf_len) {
     count_lines(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
 }
 
-// makes sure buffer only contains whole utf-8 characters, if any
+// makes sure buffer only contains whole UTF-8 characters, if any
 // are incomplete then they are stored in the stragglers array
 void add_unencoded_input (char *buf, size_t buf_len) {
     if (tabb->buf_size - tabb->buf_len < buf_len) {
@@ -614,32 +613,29 @@ void read_file () {
 }
 
 void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
-    if (cinfo->width) {
-        memcpy(ttybuf, buf, cinfo->len);
-        ttybuf_len = cinfo->len;
-        ttybuf_width = cinfo->width;
-    }
-    else {
-        int i;
-        ttybuf_len = 0;
-        ttybuf_width = 0;
-        for (i = 0; i < len; i++) {
-            if (buf[i] < 0x20) {
-                snprintf(ttybuf + ttybuf_len, sizeof ttybuf - ttybuf_len,
-                    "^%c", 0x40 + buf[i]);
-                ttybuf_len += 2;
-                ttybuf_width += 2;
-            }
-            else if (buf[i] == 0x7f) {
-                snprintf(ttybuf + ttybuf_len, sizeof ttybuf - ttybuf_len, "^?");
-                ttybuf_len += 2;
-                ttybuf_width += 2;
-            }
-            else {
-                ttybuf[ttybuf_len] = buf[i];
-                ttybuf_len++;
-                ttybuf_width++;
-            }
+    int i;
+    ttybuf_len = 0;
+    int retval;
+    for (i = 0; i < len; i++) {
+        if (ttybuf_len > sizeof ttybuf - 3) {
+            break;
+        }
+        unsigned char c = buf[i];
+        if (c < 0x20) {
+            retval = sprintf(ttybuf + ttybuf_len, "^%c", 0x40 + c);
+            ttybuf_len += retval;
+        }
+        else if (c == 0x7f) {
+            retval = sprintf(ttybuf + ttybuf_len, "^?");
+            ttybuf_len += retval;
+        }
+        else if (c == 0x20) {
+            retval = sprintf(ttybuf + ttybuf_len, "␣");
+            ttybuf_len += retval;
+        }
+        else {
+            ttybuf[ttybuf_len] = c;
+            ttybuf_len++;
         }
     }
 }
@@ -710,10 +706,10 @@ int read_key (char *buf, int len) {
             move_end();
             break;
         case 'h':
-            move_left(4);
+            move_left(columns / 3);
             break;
         case 'H':
-            move_left(columns / 2);
+            move_line_left();
             break;
         case 'j':
             move_forward(1);
@@ -728,10 +724,10 @@ int read_key (char *buf, int len) {
             move_backward(2);
             break;
         case 'l':
-            move_right(4);
+            move_right(columns / 3);
             break;
         case 'L':
-            move_right(columns / 2);
+            move_line_right();
             break;
         case 'q':
             close_tab();
@@ -787,16 +783,16 @@ int read_key (char *buf, int len) {
         move_backward(1);
     }
     else if (strncmp(buf, "\e[D", 3) == 0) {
-        move_left(4);
+        move_left(columns / 3);
     }
     else if (strncmp(buf, "\eb", 2) == 0) {
-        move_left(columns / 2);
+        move_line_left();
     }
     else if (strncmp(buf, "\e[C", 3) == 0) {
-        move_right(4);
+        move_right(columns / 3);
     }
     else if (strncmp(buf, "\ef", 2) == 0) {
-        move_right(columns / 2);
+        move_line_right();
     }
     else if (strncmp(buf, "\e[H", 3) == 0) {
         move_line_left();
@@ -812,9 +808,6 @@ int read_key (char *buf, int len) {
     }
     else {
         draw_status();
-    }
-    if (cinfo.width) {
-        return cinfo.len;
     }
     return len;
 }
@@ -884,20 +877,18 @@ void usage () {
         "    D,⇟           go down a screen\n"
         "    g             go to the top of the file\n"
         "    G             go to the bottom of the file\n"
-        "    h,←           go left 4 spaces\n"
-        "    H             go left half a screen\n"
+        "    h,←           go left one third a screen\n"
+        "    H,⇤           go left all the way\n"
         "    j,↓           go down one line\n"
         "    k,↑           go up one line\n"
-        "    l,→           go right 4 spaces\n"
-        "    L             go right half a screen\n"
+        "    l,→           go right one third a screen\n"
+        "    L,⇥           go right all the way\n"
         "    q             quit\n"
         "    t             go to next tab\n"
         "    T             go to previous tab\n"
         "    u             go up half a screen\n"
         "    U,⇞           go up a screen\n"
         "    w             toggle line wrap\n"
-        "    ⇤             go left all the way\n"
-        "    ⇥             go right all the way\n"
     );
     stage_write();
 }

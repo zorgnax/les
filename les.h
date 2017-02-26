@@ -71,29 +71,29 @@ extern size_t tlines_size;
 extern prompt_t *pr;
 extern int prompt_done;
 
-/* les.c */
+// les.c
 void draw_tab ();
 void stage_tab2 (int n, tline_t *tlines, size_t tlines_len);
 void draw_status ();
 void stage_tabs ();
 
-/* charinfo.c */
+// charinfo.c
 void shorten (char *str, int n);
 int strwidth (const char *str);
 int strnwidth (const char *str, size_t len);
 void get_char_info (charinfo_t *cinfo, const char *buf, int i);
 
-/* prompt.c */
+// prompt.c
 void search ();
 void draw_prompt ();
 
-/* linewrap.c */
+// linewrap.c
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 void get_nowrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 int prev_line (char *buf, size_t len, size_t pos, int n);
 
-/* movement.c */
+// movement.c
 void move_forward (int n);
 void move_backward (int n);
 void move_start ();
@@ -103,7 +103,7 @@ void move_right (int n);
 void move_line_left ();
 void move_line_right ();
 
-/* stage.c */
+// stage.c
 void stage_init ();
 void stage_cat (const char *str);
 void stage_ncat (const char *str, size_t n);

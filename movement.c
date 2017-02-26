@@ -140,6 +140,9 @@ void move_end () {
 }
 
 void move_left (int n) {
+    if (line_wrap) {
+        return;
+    }
     if (tabb->column == 0) {
         return;
     }
@@ -151,11 +154,17 @@ void move_left (int n) {
 }
 
 void move_right (int n) {
+    if (line_wrap) {
+        return;
+    }
     tabb->column += n;
     draw_tab();
 }
 
 void move_line_left () {
+    if (line_wrap) {
+        return;
+    }
     if (tabb->column == 0) {
         return;
     }
@@ -164,6 +173,9 @@ void move_line_left () {
 }
 
 void move_line_right () {
+    if (line_wrap) {
+        return;
+    }
     int i;
     int width = 0;
     for (i = 0; i < tlines_len; i++) {
