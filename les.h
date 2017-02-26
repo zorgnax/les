@@ -81,7 +81,7 @@ void stage_tabs ();
 void shorten (char *str, int n);
 int strwidth (const char *str);
 int strnwidth (const char *str, size_t len);
-void get_char_info (charinfo_t *cinfo, const char *buf);
+void get_char_info (charinfo_t *cinfo, const char *buf, int i);
 
 /* prompt.c */
 void search ();

@@ -3,9 +3,10 @@
 
 int get_char_width (unsigned int codepoint) {
     static width_range_t width_ranges[] = {
-        {0x00,    0x07,    0},
+        {0x00,    0x00,    1},
+        {0x01,    0x07,    4},
         {0x08,    0x08,   -1},
-        {0x09,    0x1f,    0},
+        {0x09,    0x1f,    4},
         {0x7f,    0x9f,    0},
         {0x300,   0x36f,   0},
         {0x483,   0x489,   0},
@@ -314,21 +315,46 @@ int get_char_width (unsigned int codepoint) {
     return 1;
 }
 
-int get_escape_len (const char *buf) {
-    int i;
-    for (i = 1;; i++) {
-        if (buf[i] == '\0') {
-            return 1;
+void get_escape_len (charinfo_t *cinfo, const char *buf, int i) {
+    int j;
+    for (j = 1;; j++) {
+        char c = buf[i + j];
+        if (c == '[' || c == ';' || (c >= '0' && c <= '9')) {
+            continue;
         }
-        if ((buf[i] >= 'a' && buf[i] <= 'z') || (buf[i] >= 'A' && buf[i] <= 'Z')) {
-            return i + 1;
+        else if (c == 'm') {
+            cinfo->len = j + 1;
+            cinfo->width = 0;
+            return;
+        }
+        else {
+            cinfo->len = 1;
+            cinfo->width = 4;
+            return;
         }
     }
-    return i;
+    cinfo->len = 1;
+    cinfo->width = 4;
 }
 
-void get_char_info (charinfo_t *cinfo, const char *buf) {
-    char c = buf[0];
+void get_backspace_len (charinfo_t *cinfo, const char *buf, int i) {
+    if (i == 0) {
+        cinfo->width = 4;
+        cinfo->len = 1;
+    }
+    else if (buf[i - 1] == '_' ||
+             buf[i - 1] == buf[i + 1]) {
+        cinfo->width = -1;
+        cinfo->len = 1;
+    }
+    else {
+        cinfo->width = 4;
+        cinfo->len = 1;
+    }
+}
+
+void get_char_info (charinfo_t *cinfo, const char *buf, int i) {
+    char c = buf[i];
     cinfo->error = 0;
     if ((c & 0x80) == 0x00) {
         cinfo->len = 1;
@@ -356,21 +382,30 @@ void get_char_info (charinfo_t *cinfo, const char *buf) {
     }
     else {
         cinfo->len = 1;
+        cinfo->width = 4;
         cinfo->mask = 0x00;
         cinfo->error = 1;
         return;
     }
 
-    unsigned int codepoint = buf[0] & cinfo->mask;
-    int i;
-    for (i = 1; i < cinfo->len; i++) {
+    unsigned int codepoint = buf[i] & cinfo->mask;
+    int j;
+    for (j = 1; j < cinfo->len; j++) {
+        char c2 = buf[i + j];
+        if ((c2 & 0xc0) != 0x80) {
+            cinfo->error = 1;
+            cinfo->width = 2 + 2 * cinfo->len;
+            return;
+        }
         codepoint <<= 6;
-        codepoint |= buf[i] & 0x3f;
+        codepoint |= c2 & 0x3f;
     }
     cinfo->codepoint = codepoint;
-    if (c == 0x1b) {
-        cinfo->len = get_escape_len(buf);
-        cinfo->width = 0;
+    if (c == 0x08) {
+        get_backspace_len(cinfo, buf, i);
+    }
+    else if (c == 0x1b) {
+        get_escape_len(cinfo, buf, i);
     }
     else {
         cinfo->width = get_char_width(codepoint);
@@ -381,7 +416,7 @@ int strwidth (const char *str) {
     int i, width = 0;
     charinfo_t cinfo;
     for (i = 0; str[i];) {
-        get_char_info(&cinfo, str + i);
+        get_char_info(&cinfo, str, i);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -392,7 +427,7 @@ int strnwidth (const char *str, size_t len) {
     int i, width = 0;
     charinfo_t cinfo;
     for (i = 0; i < len;) {
-        get_char_info(&cinfo, str + i);
+        get_char_info(&cinfo, str, i);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -404,7 +439,7 @@ void shorten (char *str, int n) {
     int width = 0;
     charinfo_t cinfo;
     for (i = 0; str[i];) {
-        get_char_info(&cinfo, str + i);
+        get_char_info(&cinfo, str, i);
         if (width + cinfo.width > n / 2) {
             break;
         }
@@ -416,7 +451,7 @@ void shorten (char *str, int n) {
         if ((str[j] & 0xc0) == 0x80) {
             j--;
         }
-        get_char_info(&cinfo, str + j);
+        get_char_info(&cinfo, str, j);
         width += cinfo.width;
         if (width >= n) {
             break;

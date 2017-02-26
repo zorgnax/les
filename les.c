@@ -271,7 +271,7 @@ void stage_status () {
         if (width >= right) {
             break;
         }
-        get_char_info(&cinfo, tabb->name + i);
+        get_char_info(&cinfo, tabb->name, i);
         memcpy(status_buf + i, tabb->name + i, cinfo.len);
         status_buf_len += cinfo.len;
         width += cinfo.width;
@@ -294,7 +294,7 @@ void stage_status () {
     width = 0;
     j = 0;
     for (i = 0; i < status_buf_len;) {
-        get_char_info(&cinfo, status_buf + i);
+        get_char_info(&cinfo, status_buf, i);
         if (j == 0 && (!tabb->buf_len || width >= columns * tabb->pos / tabb->buf_len)) {
             stage_cat(tparm(set_a_background, 16 + 36*0 + 6*1 + 5));
             j++;
@@ -321,12 +321,12 @@ void draw_status () {
 // then the same character again.
 void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
     if (i == 0) {
-        cinfo->width = 0;
+        cinfo->width = 4;
         cinfo->len = 1;
-        return;
+        stage_cat("<08>");
     }
-    if (buf[i - 1] == '_') {
-        get_char_info(cinfo, buf + i + 1);
+    else if (buf[i - 1] == '_') {
+        get_char_info(cinfo, buf, i + 1);
         stage_cat("\b");
         stage_cat(enter_underline_mode);
         stage_ncat(buf + i + 1, cinfo->len);
@@ -334,7 +334,7 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
         cinfo->len += 1;
     }
     else if (buf[i - 1] == buf[i + 1]) {
-        get_char_info(cinfo, buf + i + 1);
+        get_char_info(cinfo, buf, i + 1);
         stage_cat("\b");
         stage_cat(enter_bold_mode);
         stage_ncat(buf + i + 1, cinfo->len);
@@ -342,7 +342,46 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
         cinfo->len += 1;
     }
     else {
-        stage_cat("\b");
+        cinfo->width = 4;
+        cinfo->len = 1;
+        stage_cat("<08>");
+    }
+}
+
+void stage_character (charinfo_t *cinfo, char *buf, int i) {
+    static char str[16];
+    int j;
+    unsigned char c = buf[i];
+    if (cinfo->error) {
+        str[0] = '<';
+        for (j = 0; j < cinfo->len; j++) {
+            unsigned char c2 = buf[i + j];
+            sprintf(str + 1 + j * 2, "%02x", c2);
+        }
+        str[j * 2 + 1] = '>';
+        str[j * 2 + 2] = '\0';
+        stage_cat(str);
+    }
+    else if (c == '\t') {
+        for (j = 0; j < tab_width; j++) {
+            stage_cat(" ");
+        }
+    }
+    else if (c == '\b') {
+        stage_backspace(cinfo, buf, i);
+    }
+    else if (buf[i] == '\e' && cinfo->len > 1) {
+        stage_ncat(buf + i, cinfo->len);
+    }
+    else if (c == 0x00) {
+        stage_cat("·");
+    }
+    else if (c < 0x20) {
+        sprintf(str, "<%02x>", c);
+        stage_cat(str);
+    }
+    else {
+        stage_ncat(buf + i, cinfo->len);
     }
 }
 
@@ -351,22 +390,11 @@ void stage_line_wrap (tline_t *tline) {
     int i;
     int width = 0;
     for (i = tline->pos; i < tline->end_pos;) {
-        get_char_info(&cinfo, tabb->buf + i);
+        get_char_info(&cinfo, tabb->buf, i);
         if (tabb->buf[i] == '\r' || tabb->buf[i] == '\n') {
             break;
         }
-        else if (tabb->buf[i] == '\t') {
-            int j;
-            for (j = 0; j < tab_width; j++) {
-                stage_cat(" ");
-            }
-        }
-        else if (tabb->buf[i] == '\b') {
-            stage_backspace(&cinfo, tabb->buf, i);
-        }
-        else {
-            stage_ncat(tabb->buf + i, cinfo.len);
-        }
+        stage_character(&cinfo, tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -381,7 +409,7 @@ void stage_line_nowrap (tline_t *tline) {
     int width = 0;
     charinfo_t cinfo;
     for (i = tline->pos; i < tline->end_pos;) {
-        get_char_info(&cinfo, tabb->buf + i);
+        get_char_info(&cinfo, tabb->buf, i);
         if (width >= tabb->column && (!tabb->column || cinfo.width)) {
             break;
         }
@@ -397,7 +425,7 @@ void stage_line_nowrap (tline_t *tline) {
         return;
     }
     for (; i < tline->end_pos;) {
-        get_char_info(&cinfo, tabb->buf + i);
+        get_char_info(&cinfo, tabb->buf, i);
         if (width + cinfo.width > columns + tabb->column) {
             break;
         }
@@ -407,18 +435,7 @@ void stage_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == '\r' || tabb->buf[i] == '\n') {
             break;
         }
-        if (tabb->buf[i] == '\t') {
-            int j;
-            for (j = 0; j < tab_width; j++) {
-                stage_cat(" ");
-            }
-        }
-        else if (tabb->buf[i] == '\b') {
-            stage_backspace(&cinfo, tabb->buf, i);
-        }
-        else {
-            stage_ncat(tabb->buf + i, cinfo.len);
-        }
+        stage_character(&cinfo, tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -676,7 +693,7 @@ void close_tab () {
 
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
-    get_char_info(&cinfo, buf);
+    get_char_info(&cinfo, buf, 0);
     set_ttybuf(&cinfo, buf, len);
     int extended = 0;
     switch (buf[0]) {
@@ -976,6 +993,7 @@ int main (int argc, char **argv) {
 
     atexit(bye);
     signal2(SIGINT, interrupt);
+    signal2(SIGTERM, bye2);
     signal2(SIGQUIT, bye2);
     signal2(SIGCONT, cont);
     signal2(SIGTSTP, tstp);

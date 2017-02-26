@@ -15,7 +15,7 @@ void stage_prompt_line (tline_t *tline) {
     int i;
     int width = 0;
     for (i = tline->pos; i < tline->end_pos;) {
-        get_char_info(&cinfo, pr->buf + i);
+        get_char_info(&cinfo, pr->buf, i);
         if (pr->buf[i] == '\r' || pr->buf[i] == '\n') {
             break;
         }
@@ -351,7 +351,7 @@ prompt_t *init_prompt (const char *prompt) {
 
 void search () {
     if (!spr) {
-        spr = init_prompt("foo: ");
+        spr = init_prompt("/");
     }
     pr = spr;
     gets_prompt();

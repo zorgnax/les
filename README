@@ -7,13 +7,12 @@ C using the terminfo and iconv libraries.
 Unicode
 =======
 
-The main reason you would need ot handle unicode in a program like
-this is to get the right number of characters on a line. This
-requires the program to know what characters it has in its buffer,
-the number of bytes in each character, and the screen width of the
-character (some characters in unicode take 2 or 0 widths).  This
-program will assume the input file was utf-8. if it isn't, then you
-can give the correct encoding with the -e (encoding) option.
+The main reason this program needs to handle unicode is to get the
+right number of characters on a line. This requires the program to
+know the number of bytes in each character, and the screen width
+of the character (some characters in unicode take 0, 1, or 2 widths).
+This program will assume the input file was utf-8. if it isn't,
+then you can give the correct encoding with the -e (encoding) option.
 
 Highlights
 ==========
@@ -42,21 +41,23 @@ to your .gitconfig:
 Improvements Over less
 ======================
 
-Word wrap will keep words together. less breaks words at the end
-of a line even if they could fit on the next line.
+In less, Ctrl-C doesn't close the program.
 
-Sometimes when less is word wrapped you have to press j multiple
-times to go down one wrapped line.
+In less, lines are wrapped in the middle of a word.
 
-While less is loading the first page, you can not enter keyboard
-commands.
+In less, you sometimes have to press j multiple times to go down
+one wrapped line.
 
-Tabbed buffer list.
+In less, you cannot enter keyboard commands while the first screen is loading.
 
-If you have line wrap and you move right, less will turn off line
-wrap and move right, which looks confusing.
+In less, there is no tabbed buffer list.
 
-Left and right movement are bound to h and l like one would expect.
+In less, if the line is wrapped and you move right, word wrap is
+turned off and you move right, which shuffles the screen and looks
+confusing.
+
+In less, left and right movement are bound to the arrow keys when
+they should be bound to h and l.
 
 Todo
 ====
@@ -69,4 +70,5 @@ mousewheel scroll
 port to linux
 create a man page
 gpl it
-
+?searching
+tail -f

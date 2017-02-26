@@ -1,5 +1,6 @@
 CC = gcc
 LDLIBS = -lncurses -liconv
+PREFIX = /usr/local
 
 all: les
 
@@ -17,8 +18,11 @@ linewrap.o: linewrap.c les.h
 movement.o: movement.c les.h
 stage.o: stage.c les.h
 
+install:
+	echo $(PREFIX)
+
 clean:
 	rm -rf les *.o
 
-.PHONY: all clean
+.PHONY: all clean install
 

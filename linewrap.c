@@ -58,7 +58,7 @@ void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlin
         }
 
         // get the word starting at byte i to byte j
-        get_char_info(&cinfo1, buf + i);
+        get_char_info(&cinfo1, buf, i);
         whitespace1 = c1 == ' ' || c1 == '\t';
         width = cinfo1.width;
         for (j = i + cinfo1.len; j < len;) {
@@ -70,7 +70,7 @@ void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlin
             if (whitespace1 ^ whitespace2) {
                 break;
             }
-            get_char_info(&cinfo2, buf + j);
+            get_char_info(&cinfo2, buf, j);
             width += cinfo2.width;
             j += cinfo2.len;
         }
@@ -102,7 +102,7 @@ void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlin
 	// wouldn't fit on a line by itself, so display as much as
 	// you can on this line, then more on the next line
         for (k = 0; k < j - i;) {
-            get_char_info(&cinfo2, buf + i + k);
+            get_char_info(&cinfo2, buf, i + k);
             if (column + cinfo2.width > columns) {
                 (*tlines)[*tlines_len - 1].end_pos = i + k;
                 if (max && *tlines_len == max) {
