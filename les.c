@@ -49,7 +49,7 @@ void bye2 () {
 
 void interrupt () {
     if (pr) {
-        prompt_done = 1;
+        prompt_cancel = 1;
     }
     else {
         exit(1);

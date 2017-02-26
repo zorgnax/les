@@ -61,6 +61,10 @@ confusing.
 In less, left and right movement are bound to the arrow keys when
 they should be bound to h and l.
 
+In less, there are a lot of useless command line options and key
+binds that no one will use ever. For example (-a, -A, -b, -B, -c,
+-C, -d, -D, -e, -E, -f, -g, -G)
+
 Todo
 ====
 
@@ -74,3 +78,6 @@ create a man page
 gpl it
 ?searching
 tail -f
+Ctrl-U on long files causes crash
+escape in prompt needs to exit the prompt
+

@@ -69,7 +69,7 @@ extern tline_t *tlines;
 extern size_t tlines_len;
 extern size_t tlines_size;
 extern prompt_t *pr;
-extern int prompt_done;
+extern int prompt_cancel;
 
 // les.c
 void draw_tab ();

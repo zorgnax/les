@@ -9,6 +9,7 @@
 prompt_t *pr = NULL;
 prompt_t *spr = NULL;
 int prompt_done = 0;
+int prompt_cancel = 0;
 
 void stage_prompt_line (tline_t *tline) {
     charinfo_t cinfo;
@@ -232,7 +233,10 @@ int getc_prompt (char *buf, int len) {
         addc_prompt(buf, len2);
         return len2;
     }
-    if (strncmp(buf, "\e[D", 3) == 0) {
+    if (buf[0] == '\n') {
+        prompt_done = 1;
+    }
+    else if (strncmp(buf, "\e[D", 3) == 0) {
         prompt_left();
     }
     else if (strncmp(buf, "\eb", 2) == 0) {
@@ -274,10 +278,15 @@ int getc_prompt (char *buf, int len) {
     else if (strncmp(buf, "\e[F", 3) == 0) {
         pr->cursor = pr->len;
     }
+    else if (buf[0] == '\e' && len == 1) {
+        prompt_cancel = 1;
+    }
     return len;
 }
 
 void gets1_prompt () {
+    prompt_done = 0;
+    prompt_cancel = 0;
     pr->len = pr->prompt_len;
     pr->cursor = pr->len;
     pr->nlines = 1;
@@ -290,7 +299,6 @@ void gets1_prompt () {
 }
 
 void gets2_prompt () {
-    prompt_done = 0;
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
     stage_tabs();
@@ -304,7 +312,7 @@ void gets_prompt () {
     int i, nread, clen, processed;
     while (1) {
         nread = read(tty, buf + len, sizeof buf - len);
-        if (prompt_done) {
+        if (prompt_cancel) {
             break;
         }
         if (nread < 0 && (errno == EINTR || errno == EAGAIN)) {
@@ -318,9 +326,6 @@ void gets_prompt () {
             exit(1);
         }
         for (i = 0; i < nread;) {
-            if (buf[i] == '\n') {
-                goto end;
-            }
             clen = UTF8_LENGTH(buf[i]);
             if (clen > nread - i) {
                 memmove(buf, buf + i, nread - i);
@@ -329,6 +334,9 @@ void gets_prompt () {
             }
             processed = getc_prompt(buf + i, nread - i);
             i += processed;
+            if (prompt_done || prompt_cancel) {
+                goto end;
+            }
         }
         draw_prompt();
     }
@@ -356,5 +364,8 @@ void search () {
     pr = spr;
     gets_prompt();
     pr = NULL;
+    if (prompt_cancel) {
+        return;
+    }
 }
 
