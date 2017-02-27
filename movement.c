@@ -100,6 +100,10 @@ void move_backward (int n) {
             tabb->line--;
         }
     }
+    if (m >= lines - line1 - 1) {
+        draw_tab();
+        return;
+    }
     for (i = 0; i < m; i++) {
         tlines2[m - i - 1] = tlines3[i];
     }

@@ -412,7 +412,7 @@ void stage_line_nowrap (tline_t *tline) {
         if (width >= tabb->column && (!tabb->column || cinfo.width)) {
             break;
         }
-        if (tabb->buf[i] == 0x1b) {
+        if (tabb->buf[i] == 0x1b && cinfo.len > 1) {
             e++;
             stage_ncat(tabb->buf + i, cinfo.len);
         }
