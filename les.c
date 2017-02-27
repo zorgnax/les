@@ -13,6 +13,7 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 
 size_t tabs_len = 0;
 size_t tabs_size = 0;
@@ -305,9 +306,9 @@ void draw_status () {
 // then the same character again.
 void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
     if (i == 0) {
-        cinfo->width = 4;
+        cinfo->width = 2;
         cinfo->len = 1;
-        stage_cat("<08>");
+        stage_cat("^H");
     }
     else if (buf[i - 1] == '_') {
         get_char_info(cinfo, buf, i + 1);
@@ -326,9 +327,9 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
         cinfo->len += 1;
     }
     else {
-        cinfo->width = 4;
+        cinfo->width = 2;
         cinfo->len = 1;
-        stage_cat("<08>");
+        stage_cat("^H");
     }
 }
 
@@ -337,12 +338,12 @@ void stage_character (charinfo_t *cinfo, char *buf, int i) {
     int j;
     unsigned char c = buf[i];
     if (cinfo->error) {
-        str[0] = '<';
+        str[0] = '[';
         for (j = 0; j < cinfo->len; j++) {
             unsigned char c2 = buf[i + j];
-            sprintf(str + 1 + j * 2, "%02x", c2);
+            sprintf(str + 1 + j * 2, "%02X", c2);
         }
-        str[j * 2 + 1] = '>';
+        str[j * 2 + 1] = ']';
         str[j * 2 + 2] = '\0';
         stage_cat(str);
     }
@@ -361,7 +362,11 @@ void stage_character (charinfo_t *cinfo, char *buf, int i) {
         stage_cat("·");
     }
     else if (c < 0x20) {
-        sprintf(str, "<%02x>", c);
+        sprintf(str, "^%c", 0x40 + c);
+        stage_cat(str);
+    }
+    else if (c == 0x7f) {
+        sprintf(str, "^%c", -0x40 + c);
         stage_cat(str);
     }
     else {

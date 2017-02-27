@@ -11,7 +11,8 @@ At the bottom of the screen is a status bar that shows the filename,
 current line number over the total number of lines, and the number
 of bytes of the input. Your progress through the file is shown with
 a dark blue background color. The current page is represented as a
-lighter blue background color.
+lighter blue background color. This gives a good visual representation
+of how far into the file you are.
 
 Tab bar
 =======
@@ -30,19 +31,22 @@ character (characters in Unicode can take 0, 1, or 2 widths). the
 input file is assumed to be UTF-8. if it isn't, then you can give
 the correct encoding with the -e (encoding) option.
 
-Highlights
-==========
+Searching
+=========
 
 When you search, all matches will be highlighted in blue, the one
 you are up to in green.
 
-Man Pages and git diff
-======================
+Man Pages
+=========
 
 You can set your man page output to be piped through les by adding
 the following to your .bashrc:
 
     export PAGER=les
+
+Git diff
+========
 
 You can set les to be your git diff viewer by adding the following
 to your .gitconfig:

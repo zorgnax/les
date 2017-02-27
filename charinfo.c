@@ -4,10 +4,11 @@
 int get_char_width (unsigned int codepoint) {
     static width_range_t width_ranges[] = {
         {0x00,    0x00,    1},
-        {0x01,    0x07,    4},
+        {0x01,    0x07,    2},
         {0x08,    0x08,   -1},
-        {0x09,    0x1f,    4},
-        {0x7f,    0x9f,    0},
+        {0x09,    0x1f,    2},
+        {0x7f,    0x7f,    2},
+        {0x80,    0x9f,    0},
         {0x300,   0x36f,   0},
         {0x483,   0x489,   0},
         {0x591,   0x5bd,   0},
