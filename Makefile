@@ -21,7 +21,7 @@ stage.o: stage.c les.h
 
 install: les
 	mkdir -p $(PREFIX)/share/les
-	install -c lesopen $(PREFIX)/share/les
+	install -c lespipe $(PREFIX)/share/les
 	install -c les $(PREFIX)/bin
 
 uninstall:

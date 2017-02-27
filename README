@@ -4,25 +4,37 @@ les
 This is a pager program similar to less and more. It is written in
 C using the terminfo, iconv, and pcre2 libraries.
 
+Status Bar
+==========
+
+At the bottom of the screen is a status bar that shows the filename,
+current line number over the total number of lines, and the number
+of bytes of the input. Your progress through the file is shown with
+a dark blue background color. The current page is represented as a
+lighter blue background color.
+
+Tab bar
+=======
+
+If you open multiple files, the top line will show them all as a
+list of tabs. Press t and T to cycle through them, q to close one,
+and Q to close all of them.
+
 Unicode
 =======
 
 The reason this program needs to handle Unicode is to get the right
 number of characters on a line. This requires the program to know
 the number of bytes in each character, and the screen width of the
-character (characters in Unicode can take 0, 1, or 2 widths).  This
-program will assume the input file was UTF-8. if it isn't, then you
-can give the correct encoding with the -e (encoding) option.
+character (characters in Unicode can take 0, 1, or 2 widths). the
+input file is assumed to be UTF-8. if it isn't, then you can give
+the correct encoding with the -e (encoding) option.
 
 Highlights
 ==========
 
-When you search, this will highlight all matches on a page in blue.
-The one you are up to in green. vim and less only search for things
-in the screen you are on for performance reasons. This program will
-find all matches in the buffer so I can show the number of matches
-in the status line.  It'll be a little bit slower. But it let's me
-do the search one time instead of every time you go down a line.
+When you search, all matches will be highlighted in blue, the one
+you are up to in green.
 
 Man Pages and git diff
 ======================
@@ -30,55 +42,50 @@ Man Pages and git diff
 You can set your man page output to be piped through les by adding
 the following to your .bashrc:
 
-export PAGER=les
+    export PAGER=les
 
 You can set les to be your git diff viewer by adding the following
 to your .gitconfig:
 
-[core]
-    pager = les
+    [core]
+        pager = les
 
-LESOPEN
-=======
+lespipe script
+==============
 
-Files opened in les are processed through the lesopen script. This
-allows the program to print out the contents tar files or decompress
-gziped files on the fly.
+Files opened in les are processed through the lespipe script. This
+allows the program to print out the contents of tar files or
+decompress gziped files on the fly.
 
-The default script is installed in /usr/local/share/les/lesopen, but
-it can be overridden by specifying an alternate program name in the
-LESOPEN environment variable. If LESOPEN is the empty string, no
-processing of inputs will be done.
+The default script is installed in /usr/local/share/les/lespipe,
+but it can be overridden by specifying an alternate program name
+with the -p option. If the script is specified as "none", then there
+will be no processing of inputs.
 
-The script is provided the file name as its first argument. If the
-script doesn't want to process the file, it needs to print nothing
-to stdout. If the script wants to process the file, it needs to
-print to stdout one line describing the type of processing, followed
-by the processed content. Here is a short example of a lesopen
+The lespipe script is given the file name as its first argument.
+If the script doesn't want to process the file, it needs to print
+nothing to stdout. If the script wants to process the file, it needs
+to print one line describing the type of processing, followed by
+the processed content. Here is a short working example of a lespipe
 script:
 
     #!/bin/bash
     if [ -d "$1" ]; then
         echo directory
         ls -l "$1"
-    elif [ "${1##*.}" = "gz" ]; then
+    elif [[ "$1" = *.gz ]]; then
         echo gzip
         gzcat "$1"
     fi
 
-
 Improvements Over less
 ======================
-
-les shows your progress through a file with a colored bar in the status line.
-
-les shows the list of opened files in a tabbed list at the top of the screen.
 
 les allows keyboard commands while loading the file.
 
 les will close the program when Ctrl-C is pressed.
 
-In less, lines are wrapped in the middle of a word.
+les will wrap a line at word boundaries.
 
 In less, you sometimes have to press j multiple times to go down
 one wrapped line.

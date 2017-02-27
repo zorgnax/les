@@ -21,6 +21,7 @@ int current_tab = 0;
 tab_t *tabb;
 int line_wrap = 1;
 char *input_encoding = NULL;
+char *lespipe = PREFIX "/share/les/lespipe";
 iconv_t cd = NULL;
 int tty;
 struct termios tcattr1, tcattr2;
@@ -66,7 +67,7 @@ void bye2 () {
     exit(1);
 }
 
-void interrupt () {
+void sigint () {
     if (pr) {
         prompt_cancel = 1;
     }
@@ -83,12 +84,17 @@ void set_tcattr () {
     tcsetattr(tty, TCSAFLUSH, &tcattr2);
 }
 
-void tstp () {
+void sigchld () {
+    int status;
+    int cpid = wait3(&status, WNOHANG, NULL);
+}
+
+void sigtstp () {
     bye();
     kill(0, SIGSTOP);
 }
 
-void cont () {
+void sigcont () {
     set_tcattr();
     stage_cat(enter_ca_mode);
     stage_cat(cursor_invisible);
@@ -460,7 +466,7 @@ void draw_tab () {
     stage_write();
 }
 
-void winch () {
+void sigwinch () {
     struct winsize w;
     ioctl(tty, TIOCGWINSZ, &w);
     lines = w.ws_row;
@@ -599,12 +605,8 @@ void read_file () {
     }
 }
 
-int open_with_lesopen () {
-    char *lesopen = getenv("LESOPEN");
-    if (!lesopen) {
-        lesopen = PREFIX "/share/les/lesopen";
-    }
-    if (strcmp(lesopen, "") == 0) {
+int open_with_lespipe () {
+    if (strcmp(lespipe, "") == 0 || strcmp(lespipe, "none") == 0) {
         return 0;
     }
 
@@ -622,7 +624,7 @@ int open_with_lesopen () {
         dup2(pipefd[1], 2);
         close(pipefd[0]);
         close(pipefd[1]);
-        execlp(lesopen, lesopen, tabb->name, NULL);
+        execl(lespipe, lespipe, tabb->name, NULL);
         _exit(1);
     }
 
@@ -652,7 +654,7 @@ void open_tab_file () {
     if (tabb->state != READY) {
         return;
     }
-    if (open_with_lesopen()) {
+    if (open_with_lespipe()) {
         return;
     }
 
@@ -925,11 +927,12 @@ void read_loop () {
 
 void usage () {
     stage_cat(
-        "Usage: les [-hw] [-e=encoding] [-t=width] file...\n"
+        "Usage: les [-hw] [-e=encoding] [-p=script] [-t=width] file...\n"
         "\n"
         "Options:\n"
         "    -e=encoding   input file encoding\n"
         "    -h            help\n"
+        "    -p=script     lespipe script\n"
         "    -t=width      tab width (default 4)\n"
         "    -w            disable line wrap\n"
         "\n"
@@ -944,7 +947,8 @@ void usage () {
         "    k,↑           go up one line\n"
         "    l,→           go right one third a screen\n"
         "    L,⇥           go right all the way\n"
-        "    q             quit\n"
+        "    q             close file\n"
+        "    Q             close all files\n"
         "    t             go to next tab\n"
         "    T             go to previous tab\n"
         "    u             go up half a screen\n"
@@ -967,6 +971,7 @@ void parse_args (int argc, char **argv) {
     struct option longopts[] = {
         {"e", required_argument, NULL, 'e'},
         {"h", no_argument, NULL, 'h'},
+        {"p", required_argument, NULL, 'p'},
         {"t", required_argument, NULL, 't'},
         {"w", no_argument, NULL, 'w'},
         {NULL, 0, NULL, 0}
@@ -981,6 +986,9 @@ void parse_args (int argc, char **argv) {
         case 'h':
             usage();
             exit(0);
+        case 'p':
+            lespipe = optarg;
+            break;
         case 't':
             tab_width = atoi(optarg);
             break;
@@ -1047,12 +1055,13 @@ int main (int argc, char **argv) {
     }
 
     atexit(bye);
-    signal2(SIGINT, interrupt);
+    signal2(SIGINT, sigint);
     signal2(SIGTERM, bye2);
     signal2(SIGQUIT, bye2);
-    signal2(SIGCONT, cont);
-    signal2(SIGTSTP, tstp);
-    signal2(SIGWINCH, winch);
+    signal2(SIGCONT, sigcont);
+    signal2(SIGTSTP, sigtstp);
+    signal2(SIGCHLD, sigchld);
+    signal2(SIGWINCH, sigwinch);
 
     tty = open("/dev/tty", O_RDONLY);
     tcgetattr(tty, &tcattr1);
