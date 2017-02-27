@@ -1,6 +1,7 @@
 CC = gcc
 LDLIBS = -lncurses -liconv
 PREFIX = /usr/local
+CPPFLAGS = -DPREFIX=\"$(PREFIX)\"
 
 all: les
 
@@ -18,11 +19,17 @@ linewrap.o: linewrap.c les.h
 movement.o: movement.c les.h
 stage.o: stage.c les.h
 
-install:
-	echo $(PREFIX)
+install: les
+	mkdir -p $(PREFIX)/share/les
+	install -c lesopen $(PREFIX)/share/les
+	install -c les $(PREFIX)/bin
+
+uninstall:
+	rm -rf $(PREFIX)/share/les
+	rm $(PREFIX)/bin/les
 
 clean:
 	rm -rf les *.o
 
-.PHONY: all clean install
+.PHONY: all clean install uninstall
 

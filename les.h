@@ -28,10 +28,13 @@ typedef struct {
     char *stragglers;
     size_t stragglers_len;
     size_t pos;
-    int loaded;
+    int state;
     int line;
     int nlines;
     int column;
+    char *mesg;
+    size_t mesg_size;
+    size_t mesg_len;
 } tab_t;
 
 typedef struct {
@@ -49,6 +52,10 @@ typedef struct {
     int nlines2;
     size_t cursor;
 } prompt_t;
+
+#ifndef PREFIX
+#define PREFIX "/usr/local"
+#endif
 
 #define UTF8_LENGTH(c)        \
     ((c & 0x80) == 0x00 ? 1 : \

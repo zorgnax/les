@@ -22,18 +22,37 @@ tab_t *tabb;
 int line_wrap = 1;
 char *input_encoding = NULL;
 iconv_t cd = NULL;
-char *status_buf;
-size_t status_buf_size;
-size_t status_buf_len;
 int tty;
 struct termios tcattr1, tcattr2;
-char ttybuf[256];
-size_t ttybuf_len = 0;
 int line1;
 tline_t *tlines = NULL;
 size_t tlines_len = 0;
 size_t tlines_size = 0;
 int tab_width = 4;
+char readbuf[8192];
+
+typedef struct {
+    char *buf;
+    size_t buf_size;
+    size_t buf_len;
+    char *left;
+    size_t left_size;
+    size_t left_len;
+    int left_width;
+    char *right;
+    size_t right_size;
+    size_t right_len;
+    int right_width;
+    char *tty;
+    size_t tty_size;
+    size_t tty_len;
+} status_t;
+
+status_t *status = NULL;
+
+#define READY  0
+#define OPENED 1
+#define LOADED 2
 
 void bye () {
     tcsetattr(tty, TCSANOW, &tcattr1);
@@ -82,14 +101,14 @@ void cont () {
     }
 }
 
-void add_tab (const char *name, int fd) {
+void add_tab (const char *name, int fd, int state) {
     tabb = malloc(sizeof (tab_t));
     tabb->name = name;
     tabb->name_width = strwidth(name);
     tabb->name2 = strdup(name);
     tabb->fd = fd;
     tabb->pos = 0;
-    tabb->loaded = 0;
+    tabb->state = state;
     tabb->buf_size = 8192;
     tabb->buf = malloc(tabb->buf_size);
     tabb->buf_len = 0;
@@ -98,6 +117,9 @@ void add_tab (const char *name, int fd) {
     tabb->line = 1;
     tabb->nlines = 0;
     tabb->column = 0;
+    tabb->mesg = NULL;
+    tabb->mesg_len = 0;
+    tabb->mesg_size = 0;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -108,47 +130,6 @@ void add_tab (const char *name, int fd) {
     }
     tabs[tabs_len] = tabb;
     tabs_len++;
-}
-
-int add_tab_file (const char *name) {
-    int fd = open(name, O_RDONLY);
-    if (fd < 0) {
-        fprintf(stderr, "Can't open %s: %s\n", name, strerror(errno));
-        return 0;
-    }
-    add_tab(name, fd);
-    return 1;
-}
-
-int isdir (const char *name) {
-    struct stat statbuf;
-    int retval = stat(name, &statbuf);
-    if (retval != 0) {
-        return 0;
-    }
-    return S_ISDIR(statbuf.st_mode);
-}
-
-int add_tab_dir (const char *name) {
-    add_tab(name, 0);
-    static char buf[512];
-    snprintf(buf, sizeof buf, "CLICOLOR_FORCE=1 ls -G -l -h %s", name);
-    FILE *fh = popen(buf, "r");
-    int c;
-    while ((c = getc(fh)) != EOF) {
-        if (tabb->buf_len == tabb->buf_size) {
-            tabb->buf_size *= 2;
-            tabb->buf = realloc(tabb->buf, tabb->buf_size);
-        }
-        tabb->buf_len++;
-        tabb->buf[tabb->buf_len - 1] = c;
-        if (c == '\n') {
-            tabb->nlines++;
-        }
-    }
-    pclose(fh);
-    tabb->loaded = 1;
-    return 1;
 }
 
 void generate_tab_names () {
@@ -240,60 +221,58 @@ char *human_readable (double size) {
 }
 
 void stage_status () {
-    static char right_buf[256];
-    int retval;
-
-    stage_cat(tparm(cursor_address, lines - 1, 0));
-    int right_len = 0;
-    int right_width = 0;
-    if (ttybuf_len) {
-        retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
-            " %.*s", (int) ttybuf_len, ttybuf);
-        right_len += retval;
-        right_width += strnwidth(right_buf, right_len);
-    }
     char *hrsize = human_readable(tabb->buf_len);
-    retval = snprintf(right_buf + right_len, sizeof right_buf - right_len,
-        " %lu -> %lu %d/%d %s", tabb->pos, tlines[tlines_len - 1].end_pos, tabb->line, tabb->nlines, hrsize);
-    right_len += retval;
-    right_width += retval;
-    int right = columns - right_width;
+    status->right_len = snprintf(
+        status->right, status->right_size,
+        "%.*s %lu -> %lu %d/%d %s",
+	(int) status->tty_len, status->tty, tabb->pos, tlines[tlines_len - 1].end_pos,
+        tabb->line, tabb->nlines, hrsize);
+    status->right_width = strnwidth(status->right, status->right_len);
 
-    int width = 0;
+    status->left_len = snprintf(
+        status->left, status->left_size,
+        "%s%.*s",
+        tabb->name, (int) tabb->mesg_len, tabb->mesg);
+
+    status->buf_len = 0;
+    while (status->buf_size < columns + status->right_len + status->left_len) {
+        status->buf_size *= 2;
+        status->buf = realloc(status->buf, status->buf_size);
+    }
+
     int i;
+    int width = 0;
     charinfo_t cinfo;
-    status_buf_len = 0;
-    for (i = 0; i < status_buf_size;) {
-        if (!tabb->name[i]) {
-            break;
-        }
+    int right = columns - status->right_width;
+
+    for (i = 0; i < status->left_len;) {
         if (width >= right) {
             break;
         }
-        get_char_info(&cinfo, tabb->name, i);
-        memcpy(status_buf + i, tabb->name + i, cinfo.len);
-        status_buf_len += cinfo.len;
+        get_char_info(&cinfo, status->left, i);
+        memcpy(status->buf + status->buf_len, status->left + i, cinfo.len);
+        status->buf_len += cinfo.len;
         width += cinfo.width;
         i += cinfo.len;
     }
 
-    for (; width < right && i < status_buf_size; i++) {
-        status_buf[i] = ' ';
-        status_buf_len++;
+    while (width < right) {
+        status->buf[status->buf_len] = ' ';
+        status->buf_len++;
         width++;
     }
 
-    int j;
-    for (j = 0; j < right_len && i < status_buf_size; j++, i++) {
-        status_buf[i] = right_buf[j];
-        status_buf_len++;
+    for (i = 0; i < status->right_len; i++) {
+        status->buf[status->buf_len] = status->right[i];
+        status->buf_len++;
     }
 
+    stage_cat(tparm(cursor_address, lines - 1, 0));
     stage_cat(tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
     width = 0;
-    j = 0;
-    for (i = 0; i < status_buf_len;) {
-        get_char_info(&cinfo, status_buf, i);
+    int j = 0;
+    for (i = 0; i < status->buf_len;) {
+        get_char_info(&cinfo, status->buf, i);
         if (j == 0 && (!tabb->buf_len || width >= columns * tabb->pos / tabb->buf_len)) {
             stage_cat(tparm(set_a_background, 16 + 36*0 + 6*1 + 5));
             j++;
@@ -302,7 +281,7 @@ void stage_status () {
             stage_cat(exit_attribute_mode);
             j++;
         }
-        stage_ncat(status_buf + i, cinfo.len);
+        stage_ncat(status->buf + i, cinfo.len);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -567,21 +546,39 @@ void add_unencoded_input (char *buf, size_t buf_len) {
     count_lines(tabb->buf + tabb->buf_len - i, i);
 }
 
-void read_file () {
-    static char buf[8192];
-    if (tabb->stragglers_len) {
-        memcpy(buf, tabb->stragglers, tabb->stragglers_len);
+void read_file2 (char *readbuf, int nread) {
+    if (input_encoding) {
+        add_encoded_input(readbuf, nread);
     }
-    int nread = read(tabb->fd, buf + tabb->stragglers_len, sizeof buf - tabb->stragglers_len);
+    else {
+        add_unencoded_input(readbuf, nread);
+    }
+    if (tabb->buf_len == tabb->buf_size) {
+        tabb->buf_size += tabb->buf_size;
+        tabb->buf = realloc(tabb->buf, tabb->buf_size);
+    }
+    tabb->buf[tabb->buf_len] = '\0';
+}
+
+void read_file () {
+    if (tabb->stragglers_len) {
+        memcpy(readbuf, tabb->stragglers, tabb->stragglers_len);
+    }
+    int nread = read(tabb->fd, readbuf + tabb->stragglers_len, sizeof readbuf - tabb->stragglers_len);
     if (nread < 0 && (errno == EAGAIN || errno == EINTR)) {
         return;
     }
     if (nread < 0) {
-        perror("read");
-        exit(1);
+        int errno2 = errno;
+        tabb->mesg_size = 256;
+        tabb->mesg = malloc(tabb->mesg_size);
+        tabb->mesg_len = snprintf(tabb->mesg, tabb->mesg_size, " [%s]", strerror(errno2));
+        tabb->state = LOADED;
+        draw_status();
+        return;
     }
     if (nread == 0) {
-        tabb->loaded = 1;
+        tabb->state = LOADED;
         if (tabb->fd) {
             close(tabb->fd);
         }
@@ -593,17 +590,7 @@ void read_file () {
     }
     nread += tabb->stragglers_len;
     tabb->stragglers_len = 0;
-    if (input_encoding) {
-        add_encoded_input(buf, nread);
-    }
-    else {
-        add_unencoded_input(buf, nread);
-    }
-    if (tabb->buf_len == tabb->buf_size) {
-        tabb->buf_size += tabb->buf_size;
-        tabb->buf = realloc(tabb->buf, tabb->buf_size);
-    }
-    tabb->buf[tabb->buf_len] = '\0';
+    read_file2(readbuf, nread);
     if (tlines_len == lines - line1 - 1) {
          draw_status();
     }
@@ -612,30 +599,101 @@ void read_file () {
     }
 }
 
+int open_with_lesopen () {
+    char *lesopen = getenv("LESOPEN");
+    if (!lesopen) {
+        lesopen = PREFIX "/share/les/lesopen";
+    }
+    if (strcmp(lesopen, "") == 0) {
+        return 0;
+    }
+
+    int pipefd[2];
+    int retval = pipe(pipefd);
+    if (retval < 0) {
+        return 0;
+    }
+    int cpid = fork();
+    if (cpid < 0) {
+        return 0;
+    }
+    if (cpid == 0) {
+        dup2(pipefd[1], 1);
+        dup2(pipefd[1], 2);
+        close(pipefd[0]);
+        close(pipefd[1]);
+        execlp(lesopen, lesopen, tabb->name, NULL);
+        _exit(1);
+    }
+
+    close(pipefd[1]);
+    int nread = read(pipefd[0], readbuf, sizeof readbuf);
+    if (nread <= 0) {
+        close(pipefd[0]);
+        return 0;
+    }
+    int i;
+    for (i = 0; i < nread; i++) {
+        if (readbuf[i] == '\n') {
+            break;
+        }
+    }
+    if (i == 0 || i == nread) {
+        close(pipefd[0]);
+        return 0;
+    }
+    read_file2(readbuf + i + 1, nread - i - 1);
+    tabb->fd = pipefd[0];
+    tabb->state = OPENED;
+    return 1;
+}
+
+void open_tab_file () {
+    if (tabb->state != READY) {
+        return;
+    }
+    if (open_with_lesopen()) {
+        return;
+    }
+
+    int fd = open(tabb->name, O_RDONLY);
+    if (fd < 0) {
+        int errno2 = errno;
+        tabb->mesg_size = 256;
+        tabb->mesg = malloc(tabb->mesg_size);
+        tabb->mesg_len = snprintf(tabb->mesg, tabb->mesg_size, " [%s]", strerror(errno2));
+        tabb->state = LOADED;
+        return;
+    }
+    tabb->fd = fd;
+    tabb->state = OPENED;
+}
+
 void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
     int i;
-    ttybuf_len = 0;
+    status->tty[0] = ' ';
+    status->tty_len = 1;
     int retval;
     for (i = 0; i < len; i++) {
-        if (ttybuf_len > sizeof ttybuf - 3) {
+        if (status->tty_len + 3 > status->tty_size) {
             break;
         }
         unsigned char c = buf[i];
         if (c < 0x20) {
-            retval = sprintf(ttybuf + ttybuf_len, "^%c", 0x40 + c);
-            ttybuf_len += retval;
+            retval = sprintf(status->tty + status->tty_len, "^%c", 0x40 + c);
+            status->tty_len += retval;
         }
         else if (c == 0x7f) {
-            retval = sprintf(ttybuf + ttybuf_len, "^?");
-            ttybuf_len += retval;
+            retval = sprintf(status->tty + status->tty_len, "^?");
+            status->tty_len += retval;
         }
         else if (c == 0x20) {
-            retval = sprintf(ttybuf + ttybuf_len, "␣");
-            ttybuf_len += retval;
+            retval = sprintf(status->tty + status->tty_len, "␣");
+            status->tty_len += retval;
         }
         else {
-            ttybuf[ttybuf_len] = c;
-            ttybuf_len++;
+            status->tty[status->tty_len] = c;
+            status->tty_len++;
         }
     }
 }
@@ -643,6 +701,7 @@ void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {
 void next_tab () {
     current_tab = (current_tab + 1) % tabs_len;
     tabb = tabs[current_tab];
+    open_tab_file();
     stage_tabs();
     draw_tab();
 }
@@ -650,6 +709,7 @@ void next_tab () {
 void prev_tab () {
     current_tab = current_tab > 0 ? (current_tab - 1) : (tabs_len - 1);
     tabb = tabs[current_tab];
+    open_tab_file();
     stage_tabs();
     draw_tab();
 }
@@ -673,7 +733,7 @@ void close_tab () {
     free(tabb2->name2);
     free(tabb2->buf);
     free(tabb2->stragglers);
-    if (!tabb2->loaded && tabb2->fd) {
+    if (tabb2->state == OPENED && tabb2->fd) {
         close(tabb2->fd);
     }
     free(tabb2);
@@ -683,6 +743,7 @@ void close_tab () {
         stage_cat(tparm(change_scroll_region, line1, lines - 1));
     }
 
+    open_tab_file();
     stage_tabs();
     draw_tab();
 }
@@ -838,12 +899,12 @@ void read_loop () {
     for (i = 0;; i++) {
         FD_ZERO(&fds);
         FD_SET(tty, &fds);
-        if (tabb->loaded) {
-            nfds = tty + 1;
-        }
-        else {
+        if (tabb->state == OPENED) {
             FD_SET(tabb->fd, &fds);
             nfds = tty > tabb->fd ? (tty + 1) : (tabb->fd + 1);
+        }
+        else {
+            nfds = tty + 1;
         }
         retval = select(nfds, &fds, NULL, NULL, NULL);
         if (retval < 0 && (errno == EAGAIN || errno == EINTR)) {
@@ -932,22 +993,9 @@ void parse_args (int argc, char **argv) {
         }
     }
 
-    int error = 0;
     int i;
     for (i = optind; i < argc; i++) {
-        int retval;
-        if (isdir(argv[i])) {
-            retval = add_tab_dir(argv[i]);
-        }
-        else {
-            retval = add_tab_file(argv[i]);
-        }
-        if (!retval) {
-            error++;
-        }
-    }
-    if (error) {
-        exit(1);
+        add_tab(argv[i], 0, READY);
     }
     if (!tabs_len) {
         fprintf(stderr, "No files\n");
@@ -966,9 +1014,25 @@ void signal2 (int sig, void (*func)(int)) {
     sigaction(sig, sa, 0);
 }
 
+void init_status () {
+    status = malloc(sizeof (status_t));
+    status->buf_size = 1024;
+    status->buf_len = 0;
+    status->buf = malloc(status->buf_size);
+    status->left_size = 1024;
+    status->left_len = 0;
+    status->left = malloc(status->left_size);
+    status->right_size = 1024;
+    status->right_len = 0;
+    status->right = malloc(status->right_size);
+    status->tty_size = 1024;
+    status->tty_len = 0;
+    status->tty = malloc(status->tty_size);
+}
+
 int main (int argc, char **argv) {
     if (!isatty(0)) {
-        add_tab("stdin", 0);
+        add_tab("stdin", 0, OPENED);
     }
 
     stage_init();
@@ -994,10 +1058,6 @@ int main (int argc, char **argv) {
     tcgetattr(tty, &tcattr1);
     set_tcattr();
 
-    status_buf_len = 0;
-    status_buf_size = columns * 6;
-    status_buf = malloc(status_buf_size);
-
     line1 = tabs_len == 1 ? 0 : 1;
 
     stage_cat(enter_ca_mode);
@@ -1005,9 +1065,12 @@ int main (int argc, char **argv) {
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
     stage_write();
 
+    init_status();
+    open_tab_file();
     stage_tabs();
     draw_tab();
 
     read_loop();
     return 0;
 }
+

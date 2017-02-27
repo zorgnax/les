@@ -38,6 +38,35 @@ to your .gitconfig:
 [core]
     pager = les
 
+LESOPEN
+=======
+
+Files opened in les are processed through the lesopen script. This
+allows the program to print out the contents tar files or decompress
+gziped files on the fly.
+
+The default script is installed in /usr/local/share/les/lesopen, but
+it can be overridden by specifying an alternate program name in the
+LESOPEN environment variable. If LESOPEN is the empty string, no
+processing of inputs will be done.
+
+The script is provided the file name as its first argument. If the
+script doesn't want to process the file, it needs to print nothing
+to stdout. If the script wants to process the file, it needs to
+print to stdout one line describing the type of processing, followed
+by the processed content. Here is a short example of a lesopen
+script:
+
+    #!/bin/bash
+    if [ -d "$1" ]; then
+        echo directory
+        ls -l "$1"
+    elif [ "${1##*.}" = "gz" ]; then
+        echo gzip
+        gzcat "$1"
+    fi
+
+
 Improvements Over less
 ======================
 
@@ -78,6 +107,4 @@ create a man page
 gpl it
 ?searching
 tail -f
-Ctrl-U on long files causes crash
-escape in prompt needs to exit the prompt
 
