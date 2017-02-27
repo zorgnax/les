@@ -395,7 +395,8 @@ void get_char_info (charinfo_t *cinfo, const char *buf, int i) {
         char c2 = buf[i + j];
         if ((c2 & 0xc0) != 0x80) {
             cinfo->error = 1;
-            cinfo->width = 2 + 2 * cinfo->len;
+            cinfo->len = 1;
+            cinfo->width = 4;
             return;
         }
         codepoint <<= 6;

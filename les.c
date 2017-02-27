@@ -380,7 +380,7 @@ void stage_line_wrap (tline_t *tline) {
     int width = 0;
     for (i = tline->pos; i < tline->end_pos;) {
         get_char_info(&cinfo, tabb->buf, i);
-        if (tabb->buf[i] == '\r' || tabb->buf[i] == '\n') {
+        if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
             break;
         }
         stage_character(&cinfo, tabb->buf, i);
@@ -421,7 +421,7 @@ void stage_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == 0x1b) {
             e++;
         }
-        if (tabb->buf[i] == '\r' || tabb->buf[i] == '\n') {
+        if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
             break;
         }
         stage_character(&cinfo, tabb->buf, i);
