@@ -6,7 +6,9 @@ To install les, run:
 To install into a different directory than /usr/local, supply the
 PREFIX variable to make:
 
-    sudo make install PREFIX=/usr
+    export PREFIX=/usr
+    make
+    sudo make install
 
 You may need to install the PCRE2 library if you don't already have it:
 

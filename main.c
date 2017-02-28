@@ -23,6 +23,7 @@ void bye () {
     tcsetattr(tty, TCSANOW, &tcattr1);
     stage_cat(tparm(change_scroll_region, 0, lines - 1));
     stage_cat(cursor_normal);
+    stage_cat(keypad_local);
     stage_cat(exit_ca_mode);
     stage_write();
 }
@@ -174,34 +175,34 @@ int read_key (char *buf, int len) {
     if (!extended) {
         return 1;
     }
-    if (strncmp(buf, "\e[B", 3) == 0) {
+    if (strncmp(buf, "\eOB", 3) == 0) { // down
         move_forward(1);
     }
-    else if (strncmp(buf, "\e[A", 3) == 0) {
+    else if (strncmp(buf, "\eOA", 3) == 0) { // up
         move_backward(1);
     }
-    else if (strncmp(buf, "\e[D", 3) == 0) {
+    else if (strncmp(buf, "\eOD", 3) == 0) { // left
         move_left(columns / 3);
     }
-    else if (strncmp(buf, "\eb", 2) == 0) {
+    else if (strncmp(buf, "\eb", 2) == 0) { // alt-left
         move_line_left();
     }
-    else if (strncmp(buf, "\e[C", 3) == 0) {
+    else if (strncmp(buf, "\eOC", 3) == 0) { // right
         move_right(columns / 3);
     }
-    else if (strncmp(buf, "\ef", 2) == 0) {
+    else if (strncmp(buf, "\ef", 2) == 0) { // alt-right
         move_line_right();
     }
-    else if (strncmp(buf, "\e[H", 3) == 0) {
+    else if (strncmp(buf, "\eOH", 3) == 0) { // home
         move_line_left();
     }
-    else if (strncmp(buf, "\e[F", 3) == 0) {
+    else if (strncmp(buf, "\eOF", 3) == 0) { // end
         move_line_right();
     }
-    else if (strncmp(buf, "\e[5~", 4) == 0) {
+    else if (strncmp(buf, "\e[5~", 4) == 0) { // pgup
         move_backward(lines - line1 - 2);
     }
-    else if (strncmp(buf, "\e[6~", 4) == 0) {
+    else if (strncmp(buf, "\e[6~", 4) == 0) { // pgdn
         move_forward(lines - line1 - 2);
     }
     else {
@@ -380,6 +381,7 @@ int main (int argc, char **argv) {
     line1 = tabs_len == 1 ? 0 : 1;
 
     stage_cat(enter_ca_mode);
+    stage_cat(keypad_xmit);
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
     stage_write();

@@ -1,6 +1,6 @@
 CC = gcc
 LDLIBS = -lncurses -liconv
-PREFIX = /usr/local
+PREFIX ?= /usr/local
 CPPFLAGS = -DPREFIX=\"$(PREFIX)\"
 
 all: les

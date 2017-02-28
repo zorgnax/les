@@ -236,28 +236,28 @@ int getc_prompt (char *buf, int len) {
     if (buf[0] == '\n') {
         prompt_done = 1;
     }
-    else if (strncmp(buf, "\e[D", 3) == 0) {
+    else if (strncmp(buf, "\eOD", 3) == 0) { // left
         prompt_left();
     }
-    else if (strncmp(buf, "\eb", 2) == 0) {
+    else if (strncmp(buf, "\eb", 2) == 0) { // alt-left
         prompt_left_word();
     }
-    else if (strncmp(buf, "\e[C", 3) == 0) {
+    else if (strncmp(buf, "\eOC", 3) == 0) { // right
         prompt_right();
     }
-    else if (strncmp(buf, "\ef", 2) == 0) {
+    else if (strncmp(buf, "\ef", 2) == 0) { // alt-right
         prompt_right_word();
     }
-    else if (strncmp(buf, "\x7f", 1) == 0) {
+    else if (strncmp(buf, "\x7f", 1) == 0) { // backspace
         prompt_backspace();
     }
-    else if (strncmp(buf, "\e\x7f", 2) == 0) {
+    else if (strncmp(buf, "\e\x7f", 2) == 0) { // alt-backspace
         prompt_backspace_word();
     }
-    else if (strncmp(buf, "\e[3~", 4) == 0) {
+    else if (strncmp(buf, "\e[3~", 4) == 0) { // delete
         prompt_delete();
     }
-    else if (strncmp(buf, "\e(", 2) == 0) {
+    else if (strncmp(buf, "\e(", 2) == 0) { // alt-delete
         prompt_delete_word();
     }
     else if (buf[0] == -0x40 + 'K') {
@@ -272,10 +272,10 @@ int getc_prompt (char *buf, int len) {
     else if (buf[0] == -0x40 + 'E') {
         pr->cursor = pr->len;
     }
-    else if (strncmp(buf, "\e[H", 3) == 0) {
+    else if (strncmp(buf, "\eOH", 3) == 0) { // home
         pr->cursor = pr->prompt_len;
     }
-    else if (strncmp(buf, "\e[F", 3) == 0) {
+    else if (strncmp(buf, "\eOF", 3) == 0) { // end
         pr->cursor = pr->len;
     }
     else if (buf[0] == '\e' && len == 1) {
