@@ -67,6 +67,10 @@ typedef struct {
      (c & 0xfe) == 0xfc ? 6 : \
                           6)
 
+#define READY  0
+#define OPENED 1
+#define LOADED 2
+
 extern int tty;
 extern int line1;
 extern tab_t *tabb;
@@ -77,12 +81,10 @@ extern size_t tlines_len;
 extern size_t tlines_size;
 extern prompt_t *pr;
 extern int prompt_cancel;
-
-// les.c
-void draw_tab ();
-void stage_tab2 (int n, tline_t *tlines, size_t tlines_len);
-void draw_status ();
-void stage_tabs ();
+extern size_t tabs_len;
+extern size_t tabs_size;
+extern tab_t **tabs;
+extern char *lespipe;
 
 // charinfo.c
 void shorten (char *str, int n);
@@ -115,6 +117,25 @@ void stage_init ();
 void stage_cat (const char *str);
 void stage_ncat (const char *str, size_t n);
 void stage_write ();
+
+// page.c
+void draw_tab ();
+void stage_tab2 (int n, tline_t *tlines, size_t tlines_len);
+void draw_status ();
+void init_status ();
+void set_ttybuf (charinfo_t *cinfo, char *buf, int len);
+
+// tabs.c
+void stage_tabs ();
+void close_tab ();
+void next_tab ();
+void prev_tab ();
+void add_tab (const char *name, int fd, int state);
+
+// readfile.c
+void read_file ();
+void set_input_encoding (char *encoding);
+void open_tab_file ();
 
 #endif
 

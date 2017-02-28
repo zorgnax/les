@@ -11,13 +11,16 @@ all: les
 %.o:
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c $(filter %.c, $^) -o $@
 
-les: les.o charinfo.o prompt.o linewrap.o movement.o stage.o
-les.o: les.c les.h
+les: main.o charinfo.o prompt.o linewrap.o movement.o stage.o page.o tabs.o readfile.o
+main.o: main.c les.h
 charinfo.o: charinfo.c les.h
 prompt.o: prompt.c les.h
 linewrap.o: linewrap.c les.h
 movement.o: movement.c les.h
 stage.o: stage.c les.h
+page.o: page.c les.h
+tabs.o: tabs.c les.h
+readfile.o: readfile.c les.h
 
 install: les
 	mkdir -p $(PREFIX)/share/les
