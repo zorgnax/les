@@ -122,7 +122,3 @@ create a man page
 gpl it
 ?searching
 tail -f
-after any large jump, there should be a keybind to take you back to where you were. maybe [ and ] takes you forward.
-save search history and file marks
-recent files list
-:recent and :jumps

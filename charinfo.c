@@ -340,7 +340,7 @@ void get_escape_len (charinfo_t *cinfo, const char *buf, int i) {
 
 void get_backspace_len (charinfo_t *cinfo, const char *buf, int i) {
     if (i == 0) {
-        cinfo->width = 4;
+        cinfo->width = 2;
         cinfo->len = 1;
     }
     else if (buf[i - 1] == '_' ||
@@ -349,7 +349,7 @@ void get_backspace_len (charinfo_t *cinfo, const char *buf, int i) {
         cinfo->len = 1;
     }
     else {
-        cinfo->width = 4;
+        cinfo->width = 2;
         cinfo->len = 1;
     }
 }

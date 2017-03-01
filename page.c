@@ -133,6 +133,7 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
         stage_cat(enter_underline_mode);
         stage_ncat(buf + i + 1, cinfo->len);
         stage_cat(exit_underline_mode);
+        cinfo->width = 0;
         cinfo->len += 1;
     }
     else if (buf[i - 1] == buf[i + 1]) {
@@ -141,6 +142,7 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
         stage_cat(enter_bold_mode);
         stage_ncat(buf + i + 1, cinfo->len);
         stage_cat(exit_attribute_mode);
+        cinfo->width = 0;
         cinfo->len += 1;
     }
     else {
