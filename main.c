@@ -86,6 +86,18 @@ void sigwinch () {
     }
 }
 
+void save_mark () {
+    tabb->state |= MARKED;
+    tabb->mark = tabb->pos;
+}
+
+void restore_mark () {
+    if (!(tabb->state & MARKED)) {
+        return;
+    }
+    move_pos(tabb->mark);
+}
+
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf, 0);
@@ -128,6 +140,12 @@ int read_key (char *buf, int len) {
         case 'L':
             move_line_right();
             break;
+        case 'm':
+            save_mark();
+            break;
+        case 'M':
+            restore_mark();
+            break;
         case 'q':
             close_tab();
             break;
@@ -149,6 +167,9 @@ int read_key (char *buf, int len) {
         case 'w':
             line_wrap = !line_wrap;
             draw_tab();
+            break;
+        case '%':
+            printf("%.2f%% \n", (double) tabb->pos / tabb->buf_len * 100);
             break;
         case '/':
             search();
@@ -237,7 +258,7 @@ void read_loop () {
     for (i = 0;; i++) {
         FD_ZERO(&fds);
         FD_SET(tty, &fds);
-        if (tabb->state == OPENED) {
+        if ((tabb->state & (OPENED|LOADED)) == OPENED) {
             FD_SET(tabb->fd, &fds);
             nfds = tty > tabb->fd ? (tty + 1) : (tabb->fd + 1);
         }
@@ -283,6 +304,8 @@ void usage () {
         "    k,↑           go up one line\n"
         "    l,→           go right one third a screen\n"
         "    L,⇥           go right all the way\n"
+        "    m             mark position\n"
+        "    M             restore marked position\n"
         "    q             close file\n"
         "    Q             close all files\n"
         "    t             go to next tab\n"

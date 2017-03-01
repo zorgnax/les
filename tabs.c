@@ -18,7 +18,7 @@ void add_tab (const char *name, int fd, int state) {
     tabb->name2 = strdup(name);
     tabb->fd = fd;
     tabb->pos = 0;
-    tabb->state = state;
+    tabb->state |= state;
     tabb->buf_size = 8192;
     tabb->buf = malloc(tabb->buf_size);
     tabb->buf_len = 0;
@@ -30,6 +30,7 @@ void add_tab (const char *name, int fd, int state) {
     tabb->mesg = NULL;
     tabb->mesg_len = 0;
     tabb->mesg_size = 0;
+    tabb->mark = 0;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -146,7 +147,7 @@ void close_tab () {
     free(tabb2->name2);
     free(tabb2->buf);
     free(tabb2->stragglers);
-    if (tabb2->state == OPENED && tabb2->fd) {
+    if (tabb2->state & OPENED && !(tabb->state & LOADED) && tabb2->fd) {
         close(tabb2->fd);
     }
     free(tabb2);

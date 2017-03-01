@@ -35,7 +35,12 @@ Searching
 =========
 
 When you search, all matches will be highlighted in blue, the one
-you are up to in green.
+you are up to in green. If the match is on the page you are currently
+viewing the page will not move. if it is less than a page away,
+then it will only move as far as it needs to show the next match.
+if the match is further away then it will position the screen with
+the match in the center. This is similar to how vim shows matches
+not less.
 
 Man Pages
 =========
@@ -117,4 +122,7 @@ create a man page
 gpl it
 ?searching
 tail -f
-
+after any large jump, there should be a keybind to take you back to where you were. maybe [ and ] takes you forward.
+save search history and file marks
+recent files list
+:recent and :jumps

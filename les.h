@@ -35,6 +35,7 @@ typedef struct {
     char *mesg;
     size_t mesg_size;
     size_t mesg_len;
+    size_t mark;
 } tab_t;
 
 typedef struct {
@@ -70,6 +71,7 @@ typedef struct {
 #define READY  0
 #define OPENED 1
 #define LOADED 2
+#define MARKED 4
 
 extern int tty;
 extern int line1;
@@ -101,6 +103,7 @@ void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, s
 void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 void get_nowrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 int prev_line (char *buf, size_t len, size_t pos, int n);
+int next_line (char *buf, size_t len, size_t pos, int n);
 
 // movement.c
 void move_forward (int n);
@@ -111,6 +114,7 @@ void move_left (int n);
 void move_right (int n);
 void move_line_left ();
 void move_line_right ();
+void move_pos (size_t pos);
 
 // stage.c
 void stage_init ();
@@ -136,6 +140,7 @@ void add_tab (const char *name, int fd, int state);
 void read_file ();
 void set_input_encoding (char *encoding);
 void open_tab_file ();
+int count_lines (char *buf, size_t len);
 
 #endif
 

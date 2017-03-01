@@ -1,6 +1,7 @@
 #include "les.h"
 #include <term.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 tline_t *tlines2 = NULL;
 size_t tlines2_len = 0;
@@ -141,6 +142,38 @@ void move_end () {
     tabb->pos = tabb->buf_len;
     tabb->line = tabb->nlines + 1;
     move_backward(lines - line1 - 1);
+}
+
+void move_pos (size_t pos) {
+    if (pos == tabb->pos) {
+        return;
+    }
+
+    // if pos occurs inside of a line, find the beginning of the line that contains it
+    if (pos != 0 && tabb->buf[pos - 1] != '\n') {
+        int prev = prev_line(tabb->buf, tabb->buf_len, pos, 0);
+        int next = next_line(tabb->buf, tabb->buf_len, pos, 1);
+        get_tlines(tabb->buf, next, prev, 0, &tlines2, &tlines2_len, &tlines2_size);
+        int i;
+        for (i = 0; i < tlines2_len; i++) {
+            if (pos < tlines2[i].end_pos) {
+                pos = tlines2[i].pos;
+                break;
+            }
+        }
+    }
+
+    int nlines = 0;
+    if (pos > tabb->pos) {
+        nlines = count_lines(tabb->buf + tabb->pos, pos - tabb->pos);
+        tabb->line += nlines;
+    }
+    else {
+        nlines = count_lines(tabb->buf + pos, tabb->pos - pos);
+        tabb->line -= nlines;
+    }
+    tabb->pos = pos;
+    draw_tab();
 }
 
 void move_left (int n) {

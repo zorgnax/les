@@ -12,13 +12,15 @@ iconv_t cd = NULL;
 char *input_encoding = NULL;
 char *lespipe = PREFIX "/share/les/lespipe";
 
-void count_lines (char *buf, size_t len) {
+int count_lines (char *buf, size_t len) {
     int i;
+    int nlines = 0;
     for (i = 0; i < len; i++) {
         if (buf[i] == '\n') {
-            tabb->nlines++;
+            nlines++;
         }
     }
+    return nlines;
 }
 
 void add_encoded_input (char *buf, size_t buf_len) {
@@ -57,7 +59,7 @@ void add_encoded_input (char *buf, size_t buf_len) {
         }
         break;
     }
-    count_lines(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
+    tabb->nlines += count_lines(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
 }
 
 // makes sure buffer only contains whole UTF-8 characters, if any
@@ -81,7 +83,7 @@ void add_unencoded_input (char *buf, size_t buf_len) {
         }
         i += len;
     }
-    count_lines(tabb->buf + tabb->buf_len - i, i);
+    tabb->nlines += count_lines(tabb->buf + tabb->buf_len - i, i);
 }
 
 void read_file2 (char *readbuf, int nread) {
@@ -111,12 +113,12 @@ void read_file () {
         tabb->mesg_size = 256;
         tabb->mesg = malloc(tabb->mesg_size);
         tabb->mesg_len = snprintf(tabb->mesg, tabb->mesg_size, " [%s]", strerror(errno2));
-        tabb->state = LOADED;
+        tabb->state |= LOADED;
         draw_status();
         return;
     }
     if (nread == 0) {
-        tabb->state = LOADED;
+        tabb->state |= LOADED;
         if (tabb->fd) {
             close(tabb->fd);
         }
@@ -178,12 +180,12 @@ int open_with_lespipe () {
     }
     read_file2(readbuf + i + 1, nread - i - 1);
     tabb->fd = pipefd[0];
-    tabb->state = OPENED;
+    tabb->state |= OPENED;
     return 1;
 }
 
 void open_tab_file () {
-    if (tabb->state != READY) {
+    if (tabb->state & OPENED) {
         return;
     }
     if (open_with_lespipe()) {
@@ -196,11 +198,11 @@ void open_tab_file () {
         tabb->mesg_size = 256;
         tabb->mesg = malloc(tabb->mesg_size);
         tabb->mesg_len = snprintf(tabb->mesg, tabb->mesg_size, " [%s]", strerror(errno2));
-        tabb->state = LOADED;
+        tabb->state |= LOADED;
         return;
     }
     tabb->fd = fd;
-    tabb->state = OPENED;
+    tabb->state |= OPENED;
 }
 
 void set_input_encoding (char *encoding) {

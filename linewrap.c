@@ -162,3 +162,17 @@ int prev_line (char *buf, size_t len, size_t pos, int n) {
     return 0;
 }
 
+int next_line (char *buf, size_t len, size_t pos, int n) {
+    int i;
+    int line = 0;
+    for (i = pos; i < len; i++) {
+        if (buf[i] == '\n' || i == len - 1) {
+            line++;
+            if (line == n) {
+                return i + 1;
+            }
+        }
+    }
+    return len;
+}
+
