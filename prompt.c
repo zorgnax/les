@@ -9,7 +9,6 @@
 prompt_t *pr = NULL;
 prompt_t *spr = NULL;
 int prompt_done = 0;
-int prompt_cancel = 0;
 
 void stage_prompt_line (tline_t *tline) {
     charinfo_t cinfo;
@@ -279,14 +278,33 @@ int getc_prompt (char *buf, int len) {
         pr->cursor = pr->len;
     }
     else if (buf[0] == '\e' && len == 1) {
-        prompt_cancel = 1;
+        interrupt = 1;
     }
     return len;
 }
 
+void alert (char *mesg) {
+    interrupt = 0;
+    stage_cat(tparm(change_scroll_region, 0, lines - 1));
+    stage_cat(tparm(cursor_address, lines - 1, 0));
+    stage_cat("\n");
+    stage_cat(mesg);
+    stage_write();
+
+    char buf[16];
+    int nread = read(tty, buf, sizeof buf);
+    stage_cat(tparm(change_scroll_region, line1, lines - 2));
+    stage_tabs();
+    draw_tab();
+
+    if (nread > 0) {
+        read_key(buf, nread);
+    }
+}
+
 void gets1_prompt () {
     prompt_done = 0;
-    prompt_cancel = 0;
+    interrupt = 0;
     pr->len = pr->prompt_len;
     pr->cursor = pr->len;
     pr->nlines = 1;
@@ -299,20 +317,26 @@ void gets1_prompt () {
 }
 
 void gets2_prompt () {
+    if (pr->len == pr->size) {
+        pr->size *= 2;
+        pr->buf = realloc(pr->buf, pr->size);
+    }
+    pr->buf[pr->len] = '\0';
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
     stage_tabs();
     draw_tab();
 }
 
-void gets_prompt () {
+char *gets_prompt (prompt_t *ppr) {
+    pr = ppr;
     gets1_prompt();
     static char buf[256];
     int len = 0;
     int i, nread, clen, processed;
     while (1) {
         nread = read(tty, buf + len, sizeof buf - len);
-        if (prompt_cancel) {
+        if (interrupt) {
             break;
         }
         if (nread < 0 && (errno == EINTR || errno == EAGAIN)) {
@@ -334,7 +358,7 @@ void gets_prompt () {
             }
             processed = getc_prompt(buf + i, nread - i);
             i += processed;
-            if (prompt_done || prompt_cancel) {
+            if (prompt_done || interrupt) {
                 goto end;
             }
         }
@@ -342,6 +366,9 @@ void gets_prompt () {
     }
     end:
     gets2_prompt();
+    char *str = pr->buf + pr->prompt_len;
+    pr = NULL;
+    return str;
 }
 
 prompt_t *init_prompt (const char *prompt) {
@@ -361,10 +388,8 @@ void search () {
     if (!spr) {
         spr = init_prompt("/");
     }
-    pr = spr;
-    gets_prompt();
-    pr = NULL;
-    if (prompt_cancel) {
+    char *str = gets_prompt(spr);
+    if (interrupt) {
         return;
     }
 }

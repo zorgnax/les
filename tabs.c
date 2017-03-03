@@ -4,6 +4,7 @@
 #include <term.h>
 #include <libgen.h>
 #include <unistd.h>
+#include <time.h>
 
 size_t tabs_len = 0;
 size_t tabs_size = 0;
@@ -12,7 +13,7 @@ int current_tab = 0;
 tab_t *tabb;
 
 void add_tab (const char *name, int fd, int state) {
-    tabb = malloc(sizeof (tab_t));
+    tab_t *tabb = malloc(sizeof (tab_t));
     tabb->name = name;
     tabb->name_width = strwidth(name);
     tabb->name2 = strdup(name);
@@ -31,6 +32,8 @@ void add_tab (const char *name, int fd, int state) {
     tabb->mesg_len = 0;
     tabb->mesg_size = 0;
     tabb->mark = 0;
+    tabb->opened = time(NULL);
+    tabb->realpath = NULL;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -41,6 +44,16 @@ void add_tab (const char *name, int fd, int state) {
     }
     tabs[tabs_len] = tabb;
     tabs_len++;
+}
+
+void init_line1 () {
+    if (tabs_len > 1) {
+        line1 = 1;
+    }
+    else {
+        line1 = 0;
+    }
+    stage_cat(tparm(change_scroll_region, line1, lines - 1));
 }
 
 void generate_tab_names () {
@@ -128,12 +141,22 @@ void prev_tab () {
     draw_tab();
 }
 
+void select_tab (int t) {
+    if (t == current_tab) {
+        return;
+    }
+    current_tab = t;
+    tabb = tabs[current_tab];
+    open_tab_file();
+}
+
 void close_tab () {
     if (tabs_len == 1) {
         exit(0);
         return;
     }
     tab_t *tabb2 = tabb;
+    add_recent_file(tabb2);
     int i;
     for (i = current_tab; i < tabs_len - 1; i++) {
         tabs[i] = tabs[i + 1];
@@ -144,6 +167,7 @@ void close_tab () {
     }
     tabb = tabs[current_tab];
 
+    free(tabb2->realpath);
     free(tabb2->name2);
     free(tabb2->buf);
     free(tabb2->stragglers);

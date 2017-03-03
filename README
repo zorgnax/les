@@ -122,3 +122,6 @@ create a man page
 gpl it
 ?searching
 tail -f
+restore last line viewed on file open
+unique recent file list by file name
+

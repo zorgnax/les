@@ -2,6 +2,7 @@
 #define __LES_H__
 
 #include <stdio.h>
+#include <time.h>
 
 typedef struct {
     int len;
@@ -36,6 +37,8 @@ typedef struct {
     size_t mesg_size;
     size_t mesg_len;
     size_t mark;
+    time_t opened;
+    char *realpath;
 } tab_t;
 
 typedef struct {
@@ -68,10 +71,12 @@ typedef struct {
      (c & 0xfe) == 0xfc ? 6 : \
                           6)
 
-#define READY  0
-#define OPENED 1
-#define LOADED 2
-#define MARKED 4
+#define READY   0
+#define OPENED  1
+#define LOADED  2
+#define MARKED  4
+#define RECENTS 8
+#define HELP    16
 
 extern int tty;
 extern int line1;
@@ -82,11 +87,13 @@ extern tline_t *tlines;
 extern size_t tlines_len;
 extern size_t tlines_size;
 extern prompt_t *pr;
-extern int prompt_cancel;
+extern int interrupt;
 extern size_t tabs_len;
-extern size_t tabs_size;
 extern tab_t **tabs;
 extern char *lespipe;
+
+// main.c
+int read_key (char *buf, int len);
 
 // charinfo.c
 void shorten (char *str, int n);
@@ -97,6 +104,9 @@ void get_char_info (charinfo_t *cinfo, const char *buf, int i);
 // prompt.c
 void search ();
 void draw_prompt ();
+char *gets_prompt (prompt_t *ppr);
+prompt_t *init_prompt (const char *prompt);
+void alert (char *mesg);
 
 // linewrap.c
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
@@ -135,12 +145,20 @@ void close_tab ();
 void next_tab ();
 void prev_tab ();
 void add_tab (const char *name, int fd, int state);
+void select_tab (int t);
+void init_line1 ();
 
 // readfile.c
 void read_file ();
 void set_input_encoding (char *encoding);
 void open_tab_file ();
 int count_lines (char *buf, size_t len);
+
+// recentfiles.c
+void add_recent_file (tab_t *tabb);
+void save_recent_files ();
+void add_recents_tab ();
+void load_recent_files ();
 
 #endif
 

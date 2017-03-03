@@ -18,8 +18,9 @@ int tty;
 struct termios tcattr1, tcattr2;
 int line1;
 int tab_width = 4;
+int interrupt = 0;
 
-void bye () {
+void reset () {
     tcsetattr(tty, TCSANOW, &tcattr1);
     stage_cat(tparm(change_scroll_region, 0, lines - 1));
     stage_cat(cursor_normal);
@@ -28,13 +29,18 @@ void bye () {
     stage_write();
 }
 
+void bye () {
+    reset();
+    save_recent_files();
+}
+
 void bye2 () {
     exit(1);
 }
 
 void sigint () {
     if (pr) {
-        prompt_cancel = 1;
+        interrupt = 1;
     }
     else {
         exit(1);
@@ -55,7 +61,7 @@ void sigchld () {
 }
 
 void sigtstp () {
-    bye();
+    reset();
     kill(0, SIGSTOP);
 }
 
@@ -96,6 +102,75 @@ void restore_mark () {
         return;
     }
     move_pos(tabb->mark);
+}
+
+char *usage_text () {
+    static char *str =
+        "Usage: les [-hw] [-e=encoding] [-p=script] [-t=width] file...\n"
+        "\n"
+        "Options:\n"
+        "    -e=encoding   input file encoding\n"
+        "    -h            help\n"
+        "    -p=script     lespipe script\n"
+        "    -t=width      tab width (default 4)\n"
+        "    -w            disable line wrap\n"
+        "\n"
+        "Key Binds:\n"
+        "    d             go down half a screen\n"
+        "    D,⇟           go down a screen\n"
+        "    g             go to the top of the file\n"
+        "    G             go to the bottom of the file\n"
+        "    h,←           go left one third a screen\n"
+        "    H,⇤           go left all the way\n"
+        "    j,↓           go down one line\n"
+        "    k,↑           go up one line\n"
+        "    l,→           go right one third a screen\n"
+        "    L,⇥           go right all the way\n"
+        "    m             mark position\n"
+        "    M             restore marked position\n"
+        "    q             close file\n"
+        "    Q             close all files\n"
+        "    t             go to next tab\n"
+        "    T             go to previous tab\n"
+        "    u             go up half a screen\n"
+        "    U,⇞           go up a screen\n"
+        "    w             toggle line wrap\n"
+        "    F1            view help\n"
+        "    F2            view recently opened files\n";
+    return str;
+}
+
+void usage () {
+    stage_cat(usage_text());
+    stage_write();
+}
+
+void add_help_tab () {
+    int i;
+    for (i = 0; i < tabs_len; i++) {
+        if (tabs[i]->state & HELP) {
+            select_tab(i);
+            stage_tabs();
+            draw_tab();
+            return;
+        }
+    }
+
+    add_tab("[Help]", 0, LOADED|HELP);
+    select_tab(tabs_len - 1);
+
+    char *str = usage_text();
+    int len = strlen(str);
+    if (tabb->buf_size < len + 1) {
+        tabb->buf_size = len + 1;
+        tabb->buf = realloc(tabb->buf, tabb->buf_size);
+    }
+    strcpy(tabb->buf, str);
+    tabb->buf_len = len;
+
+    init_line1();
+    stage_tabs();
+    move_end();
 }
 
 int read_key (char *buf, int len) {
@@ -226,6 +301,12 @@ int read_key (char *buf, int len) {
     else if (strncmp(buf, "\e[6~", 4) == 0) { // pgdn
         move_forward(lines - line1 - 2);
     }
+    else if (strncmp(buf, "\eOP", 4) == 0) { // F1
+        add_help_tab();
+    }
+    else if (strncmp(buf, "\eOQ", 4) == 0) { // F2
+        add_recents_tab();
+    }
     else {
         draw_status();
     }
@@ -280,41 +361,6 @@ void read_loop () {
             read_terminal();
         }
     }
-}
-
-void usage () {
-    stage_cat(
-        "Usage: les [-hw] [-e=encoding] [-p=script] [-t=width] file...\n"
-        "\n"
-        "Options:\n"
-        "    -e=encoding   input file encoding\n"
-        "    -h            help\n"
-        "    -p=script     lespipe script\n"
-        "    -t=width      tab width (default 4)\n"
-        "    -w            disable line wrap\n"
-        "\n"
-        "Key Binds:\n"
-        "    d             go down half a screen\n"
-        "    D,⇟           go down a screen\n"
-        "    g             go to the top of the file\n"
-        "    G             go to the bottom of the file\n"
-        "    h,←           go left one third a screen\n"
-        "    H,⇤           go left all the way\n"
-        "    j,↓           go down one line\n"
-        "    k,↑           go up one line\n"
-        "    l,→           go right one third a screen\n"
-        "    L,⇥           go right all the way\n"
-        "    m             mark position\n"
-        "    M             restore marked position\n"
-        "    q             close file\n"
-        "    Q             close all files\n"
-        "    t             go to next tab\n"
-        "    T             go to previous tab\n"
-        "    u             go up half a screen\n"
-        "    U,⇞           go up a screen\n"
-        "    w             toggle line wrap\n"
-    );
-    stage_write();
 }
 
 void parse_args (int argc, char **argv) {
@@ -373,14 +419,6 @@ void signal2 (int sig, void (*func)(int)) {
 }
 
 int main (int argc, char **argv) {
-    if (!isatty(0)) {
-        add_tab("stdin", 0, OPENED);
-    }
-
-    stage_init();
-    parse_args(argc, argv);
-    tabb = tabs[0];
-
     int retval = 0;
     char *term = getenv("TERM");
     if (setupterm(term, 1, &retval) < 0) {
@@ -401,12 +439,18 @@ int main (int argc, char **argv) {
     tcgetattr(tty, &tcattr1);
     set_tcattr();
 
-    line1 = tabs_len == 1 ? 0 : 1;
+    if (!isatty(0)) {
+        add_tab("stdin", 0, OPENED);
+    }
+
+    stage_init();
+    parse_args(argc, argv);
+    tabb = tabs[0];
 
     stage_cat(enter_ca_mode);
     stage_cat(keypad_xmit);
     stage_cat(cursor_invisible);
-    stage_cat(tparm(change_scroll_region, line1, lines - 2));
+    init_line1();
     stage_write();
 
     init_status();

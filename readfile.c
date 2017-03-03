@@ -185,13 +185,13 @@ int open_with_lespipe () {
 }
 
 void open_tab_file () {
-    if (tabb->state & OPENED) {
+    if (tabb->state & (OPENED|LOADED)) {
         return;
     }
+    tabb->realpath = realpath(tabb->name, NULL);
     if (open_with_lespipe()) {
         return;
     }
-
     int fd = open(tabb->name, O_RDONLY);
     if (fd < 0) {
         int errno2 = errno;
