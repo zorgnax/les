@@ -147,6 +147,10 @@ void usage () {
 
 void add_help_tab () {
     int i;
+    if (tabb->state & HELP) {
+        close_tab();
+        return;
+    }
     for (i = 0; i < tabs_len; i++) {
         if (tabs[i]->state & HELP) {
             select_tab(i);
@@ -271,6 +275,10 @@ int read_key (char *buf, int len) {
     if (!extended) {
         return 1;
     }
+    if (len == 1) {
+        draw_status();
+        return 1;
+    }
     if (strncmp(buf, "\eOB", 3) == 0) { // down
         move_forward(1);
     }
@@ -301,10 +309,10 @@ int read_key (char *buf, int len) {
     else if (strncmp(buf, "\e[6~", 4) == 0) { // pgdn
         move_forward(lines - line1 - 2);
     }
-    else if (strncmp(buf, "\eOP", 4) == 0) { // F1
+    else if (strncmp(buf, "\eOP", 3) == 0) { // F1
         add_help_tab();
     }
-    else if (strncmp(buf, "\eOQ", 4) == 0) { // F2
+    else if (strncmp(buf, "\eOQ", 3) == 0) { // F2
         add_recents_tab();
     }
     else {

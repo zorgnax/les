@@ -276,6 +276,10 @@ void add_recents_tab_line (recent_t *r) {
 
 void add_recents_tab () {
     int i;
+    if (tabb->state & RECENTS) {
+        close_tab();
+        return;
+    }
     for (i = 0; i < tabs_len; i++) {
         if (tabs[i]->state & RECENTS) {
             select_tab(i);

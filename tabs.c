@@ -176,12 +176,8 @@ void close_tab () {
     }
     free(tabb2);
 
-    if (tabs_len == 1) {
-        line1 = 0;
-        stage_cat(tparm(change_scroll_region, line1, lines - 1));
-    }
-
     open_tab_file();
+    init_line1();
     stage_tabs();
     draw_tab();
 }
