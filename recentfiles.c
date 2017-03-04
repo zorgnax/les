@@ -249,40 +249,28 @@ void load_recents_file () {
 
 void add_recents_tab_line (recent_t *r) {
     int len = 0;
-    int line_len = 0;
+    static char str[32];
     if (r->new) {
-        len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "* ");
-        line_len += len;
-        tabb->buf_len += len;
+        len = snprintf(str, sizeof str, "* ");
     }
     struct tm *opened = localtime(&(r->opened));
-    if (opened->tm_year == now->tm_year && opened->tm_mon == now->tm_mon && opened->tm_mday == now->tm_mday) {
-        len = strftime(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%I:%M%p", opened);
-    }
-    else {
-        len = strftime(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%Y-%m-%d %I:%M%p", opened);
-    }
-    line_len += len;
-    tabb->buf_len += len;
-    len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, " ");
-    line_len += len;
+    len += strftime(str + len, sizeof str - len, "%Y-%m-%d %I:%M%p", opened);
+    len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%-18s ", str);
     tabb->buf_len += len;
     int dur = r->closed - r->opened;
     if (dur < 60) {
-        len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%ds", dur);
+        len = snprintf(str, sizeof str, "%ds", dur);
     }
     else if (dur < 60 * 60) {
-        dur /= 60;
-        len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%dm", dur);
+        len = snprintf(str, sizeof str, "%dm", dur / 60);
     }
     else {
         dur /= (60 * 60);
-        len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%dh", dur);
+        len = snprintf(str, sizeof str, "%dh", dur / (60 * 60));
     }
-    line_len += len;
+    len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%-3s line %-5d %s\n", str, r->line, r->name);
     tabb->buf_len += len;
 
-    tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, " line %d %s\n", r->line, r->name);
     tabb->nlines++;
 }
 
@@ -307,6 +295,7 @@ void add_recents_tab () {
         load_recents_file();
     }
 
+    int today_line = 0;
     for (i = 0; i < recents_len; i++) {
         recent_t *r = recents + i;
         if (r->deleted) {
@@ -315,6 +304,14 @@ void add_recents_tab () {
         if (tabb->buf_len + 512 > tabb->buf_size) {
             tabb->buf_size *= 2;
             tabb->buf = realloc(tabb->buf, tabb->buf_size);
+        }
+        if (!today_line) {
+            struct tm *opened = localtime(&(r->opened));
+            if (opened->tm_year == now->tm_year && opened->tm_mon == now->tm_mon && opened->tm_mday == now->tm_mday) {
+                today_line = 1;
+                tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "------------------\n");
+                tabb->nlines++;
+            }
         }
         add_recents_tab_line(r);
     }
