@@ -1,4 +1,4 @@
-CC = gcc
+CC = gcc -g
 LDLIBS = -lncurses -liconv
 PREFIX ?= /usr/local
 CPPFLAGS = -DPREFIX=\"$(PREFIX)\"

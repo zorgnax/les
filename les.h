@@ -155,10 +155,10 @@ void open_tab_file ();
 int count_lines (char *buf, size_t len);
 
 // recentfiles.c
-void add_recent_file (tab_t *tabb);
-void save_recent_files ();
+void add_recent_tab (tab_t *tabb);
+void save_recents_file ();
 void add_recents_tab ();
-void load_recent_files ();
+void load_recents_file ();
 
 #endif
 

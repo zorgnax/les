@@ -31,7 +31,7 @@ void reset () {
 
 void bye () {
     reset();
-    save_recent_files();
+    save_recents_file();
 }
 
 void bye2 () {
@@ -419,12 +419,19 @@ void signal2 (int sig, void (*func)(int)) {
 }
 
 int main (int argc, char **argv) {
+    stage_init();
     int retval = 0;
     char *term = getenv("TERM");
     if (setupterm(term, 1, &retval) < 0) {
         fprintf(stderr, "Can't find \"%s\" in the terminfo database.\n", term);
         exit(1);
     }
+
+    if (!isatty(0)) {
+        add_tab("stdin", 0, OPENED);
+    }
+
+    parse_args(argc, argv);
 
     atexit(bye);
     signal2(SIGINT, sigint);
@@ -439,12 +446,6 @@ int main (int argc, char **argv) {
     tcgetattr(tty, &tcattr1);
     set_tcattr();
 
-    if (!isatty(0)) {
-        add_tab("stdin", 0, OPENED);
-    }
-
-    stage_init();
-    parse_args(argc, argv);
     tabb = tabs[0];
 
     stage_cat(enter_ca_mode);

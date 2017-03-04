@@ -156,7 +156,7 @@ void close_tab () {
         return;
     }
     tab_t *tabb2 = tabb;
-    add_recent_file(tabb2);
+    add_recent_tab(tabb2);
     int i;
     for (i = current_tab; i < tabs_len - 1; i++) {
         tabs[i] = tabs[i + 1];

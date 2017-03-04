@@ -14,7 +14,7 @@ a dark blue background color. The current page is represented as a
 lighter blue background color. This gives a good visual representation
 of how far into the file you are.
 
-Tab bar
+Tab Bar
 =======
 
 If you open multiple files, the top line will show them all as a
@@ -50,7 +50,7 @@ the following to your .bashrc:
 
     export PAGER=les
 
-Git diff
+Git Diff
 ========
 
 You can set les to be your git diff viewer by adding the following
@@ -59,7 +59,7 @@ to your .gitconfig:
     [core]
         pager = les
 
-lespipe script
+lespipe Script
 ==============
 
 Files opened in les are processed through the lespipe script. This
@@ -86,6 +86,19 @@ script:
         echo gzip
         gzcat "$1"
     fi
+
+Mousewheel Scroll
+=================
+
+This program allows you to scroll the page using the mousewheel.
+It works by putting the terminal into "keyboard transmit mode" which
+makes the terminal send up and down arrows when you use the mousewheel.
+
+Recent Files List
+=================
+
+When you close a file, that file is remembered in a recent files
+list, stored in ~/.les_recents. You can view the list by pressing F2.
 
 Improvements Over less
 ======================
@@ -123,5 +136,4 @@ gpl it
 ?searching
 tail -f
 restore last line viewed on file open
-unique recent file list by file name
-
+F1 and F2 should toggle the screens, open right next to the current tab

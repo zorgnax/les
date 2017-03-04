@@ -11,6 +11,7 @@ typedef struct {
     int line;
     const char *name;
     int new;
+    int deleted;
 } recent_t;
 
 recent_t *recents;
@@ -19,7 +20,7 @@ size_t recents_size = 0;
 int recents_loaded = 0;
 struct tm *now = NULL;
 
-recent_t *add_recent_file2 () {
+recent_t *add_recent () {
     if (recents_len == recents_size) {
         if (recents_size == 0) {
             recents_size = 16;
@@ -33,20 +34,38 @@ recent_t *add_recent_file2 () {
     recents_len++;
     recent_t *r = recents + recents_len - 1;
     r->new = 0;
+    r->deleted = 0;
     return r;
 }
 
-void add_recent_file (tab_t *tabb) {
+int recentscmp (const void *a, const void *b) {
+    const recent_t *a2 = a;
+    const recent_t *b2 = b;
+    return strcmp(a2->name, b2->name);
+}
+
+void delete_prior_entry (recent_t *r) {
+    int i;
+    for (i = recents_len - 2; i >= 0; i--) {
+        recent_t *r2 = recents + i;
+        if (strcmp(r2->name, r->name) == 0) {
+            r2->deleted = 1;
+            break;
+        }
+    }
+}
+
+void add_recent_tab (tab_t *tabb) {
     if (!tabb->fd || !tabb->realpath) {
         return;
     }
-    load_recent_files();
-    recent_t *r = add_recent_file2();
+    recent_t *r = add_recent();
     r->opened = tabb->opened;
     r->closed = time(NULL);
     r->line = tabb->line;
     r->name = strdup(tabb->realpath);
     r->new = 1;
+    delete_prior_entry(r);
 }
 
 char *recents_file () {
@@ -59,23 +78,24 @@ char *recents_file () {
     return file;
 }
 
-void save_recent_files () {
+void save_recents_file () {
+    load_recents_file();
     int i;
     for (i = 0; i < tabs_len; i++) {
-        add_recent_file(tabs[i]);
+        add_recent_tab(tabs[i]);
     }
     char *file = recents_file();
     if (!file) {
         return;
     }
-    FILE *fp = fopen(file, "a");
+    FILE *fp = fopen(file, "w");
     if (!fp) {
         fprintf(stderr, "Couldn't open %s: %s\n", file, strerror(errno));
         exit(1);
     }
     for (i = 0; i < recents_len; i++) {
         recent_t *r = recents + i;
-        if (!r->new) {
+        if (r->deleted) {
             continue;
         }
         fprintf(fp, "%ld %ld %d %s\n", r->opened, r->closed, r->line, r->name);
@@ -173,7 +193,7 @@ void parse_recent_files_line (char *str) {
         return;
     }
 
-    recent_t *r = add_recent_file2();
+    recent_t *r = add_recent();
     opened[opened_len] = '\0';
     r->opened = atoll(opened);
     closed[closed_len] = '\0';
@@ -184,11 +204,16 @@ void parse_recent_files_line (char *str) {
     r->name = strdup(name);
 }
 
-void load_recent_files () {
-    if (recents_loaded) {
-        return;
-    }
+void load_recents_file () {
     recents_loaded = 1;
+
+    recent_t *recents2 = recents;
+    size_t recents2_len = recents_len;
+    size_t recents2_size = recents_size;
+    recents = NULL;
+    recents_len = 0;
+    recents_size = 0;
+
     char *file = recents_file();
     if (!file) {
         return;
@@ -204,10 +229,25 @@ void load_recent_files () {
     }
 
     fclose(fp);
+
+    int i;
+    for (i = 0; i < recents2_len; i++) {
+        recent_t *r2 = recents2 + i;
+        if (!r2->new) {
+            continue;
+        }
+        recent_t *r = add_recent();
+        r->opened = r2->opened;
+        r->closed = r2->closed;
+        r->line = r2->line;
+        r->name = r2->name;
+        r->new = r2->new;
+        delete_prior_entry(r);
+    }
+    free(recents2);
 }
 
-void add_recents_tab_line (int i) {
-    recent_t *r = recents + i;
+void add_recents_tab_line (recent_t *r) {
     int len = 0;
     int line_len = 0;
     if (r->new) {
@@ -258,20 +298,28 @@ void add_recents_tab () {
     }
 
     time_t t = time(NULL);
-    now = localtime(&t);
+    now = malloc(sizeof (struct tm));
+    localtime_r(&t, now);
 
     add_tab("[Recent Files]", 0, LOADED|RECENTS);
     select_tab(tabs_len - 1);
-    load_recent_files();
+    if (!recents_loaded) {
+        load_recents_file();
+    }
 
     for (i = 0; i < recents_len; i++) {
+        recent_t *r = recents + i;
+        if (r->deleted) {
+            continue;
+        }
         if (tabb->buf_len + 512 > tabb->buf_size) {
             tabb->buf_size *= 2;
             tabb->buf = realloc(tabb->buf, tabb->buf_size);
         }
-        add_recents_tab_line(i);
+        add_recents_tab_line(r);
     }
 
+    free(now);
     init_line1();
     stage_tabs();
     move_end();
