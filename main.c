@@ -69,7 +69,7 @@ void sigcont () {
     set_tcattr();
     stage_cat(enter_ca_mode);
     stage_cat(cursor_invisible);
-    stage_cat(tparm(change_scroll_region, line1, lines - 2));
+    init_line1();
     if (pr) {
         draw_prompt();
     }
@@ -463,10 +463,10 @@ int main (int argc, char **argv) {
     stage_cat(enter_ca_mode);
     stage_cat(keypad_xmit);
     stage_cat(cursor_invisible);
-    init_line1();
     stage_write();
 
     init_status();
+    init_line1();
     stage_tabs();
     draw_tab();
 

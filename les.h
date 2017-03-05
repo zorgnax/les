@@ -40,6 +40,7 @@ typedef struct {
     size_t mark;
     time_t opened;
     char *realpath;
+    int last_line;
 } tab_t;
 
 typedef struct {
@@ -68,13 +69,14 @@ typedef struct {
      (c & 0xfe) == 0xfc ? 6 : \
                           6)
 
-#define READY   0
-#define OPENED  1
-#define LOADED  2
-#define MARKED  4
-#define RECENTS 8
-#define HELP    16
-#define ERROR   32
+#define READY      0
+#define OPENED     1
+#define LOADED     2
+#define MARKED     4
+#define RECENTS    8
+#define HELP       16
+#define ERROR      32
+#define POSITIONED 64
 
 extern int tty;
 extern int line1;
@@ -123,6 +125,7 @@ void move_right (int n);
 void move_line_left ();
 void move_line_right ();
 void move_pos (size_t pos);
+void move_to_line (int line);
 
 // stage.c
 void stage_init ();
@@ -157,6 +160,7 @@ void add_recent_tab (tab_t *tabb);
 void save_recents_file ();
 void add_recents_tab ();
 void load_recents_file ();
+void get_last_line ();
 
 #endif
 

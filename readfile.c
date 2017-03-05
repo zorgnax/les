@@ -98,6 +98,10 @@ void read_file2 (char *readbuf, int nread) {
         tabb->buf = realloc(tabb->buf, tabb->buf_size);
     }
     tabb->buf[tabb->buf_len] = '\0';
+    if (!(tabb->state & POSITIONED) && tabb->last_line > 1 && tabb->nlines >= tabb->last_line) {
+        move_to_line(tabb->last_line);
+        tabb->state |= POSITIONED;
+    }
 }
 
 void read_file () {
@@ -109,7 +113,7 @@ void read_file () {
         return;
     }
     if (nread < 0) {
-        // for example trying to read a directory
+        // For example trying to read a directory
         tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "Cannot read %s: %s\n", tabb->name, strerror(errno));
         tabb->state |= ERROR;
         tabb->state |= LOADED;
@@ -187,7 +191,7 @@ void open_tab_file () {
     if (tabb->state & (OPENED|LOADED)) {
         return;
     }
-    tabb->realpath = realpath(tabb->name, NULL);
+    get_last_line();
     if (open_with_lespipe()) {
         return;
     }

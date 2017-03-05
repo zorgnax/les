@@ -204,6 +204,25 @@ void parse_recent_files_line (char *str) {
     r->name = strdup(name);
 }
 
+// Returns the most recent line from the last time you opened this file
+void get_last_line () {
+    tabb->realpath = realpath(tabb->name, NULL);
+    if (!tabb->realpath) {
+        return;
+    }
+    if (!recents_loaded) {
+        load_recents_file();
+    }
+    int i;
+    for (i = recents_len - 1; i >= 0; i--) {
+        recent_t *r = recents + i;
+        if (strcmp(r->name, tabb->realpath) == 0) {
+            tabb->last_line = r->line;
+            return;
+        }
+    }
+}
+
 void load_recents_file () {
     recents_loaded = 1;
 

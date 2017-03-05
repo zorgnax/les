@@ -53,7 +53,7 @@ void init_line1 () {
     else {
         line1 = 0;
     }
-    stage_cat(tparm(change_scroll_region, line1, lines - 1));
+    stage_cat(tparm(change_scroll_region, line1, lines - 2));
 }
 
 void generate_tab_names () {

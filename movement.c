@@ -149,7 +149,7 @@ void move_pos (size_t pos) {
         return;
     }
 
-    // if pos occurs inside of a line, find the beginning of the line that contains it
+    // If pos occurs inside of a line, find the beginning of the line that contains it
     if (pos != 0 && tabb->buf[pos - 1] != '\n') {
         int prev = prev_line(tabb->buf, tabb->buf_len, pos, 0);
         int next = next_line(tabb->buf, tabb->buf_len, pos, 1);
@@ -174,6 +174,33 @@ void move_pos (size_t pos) {
     }
     tabb->pos = pos;
     draw_tab();
+}
+
+void move_to_line (int line) {
+    if (line == 1) {
+        tabb->pos = 0;
+        tabb->line = 1;
+        tlines_len = 0;
+        return;
+    }
+    int line2 = 1;
+    int pos = 0;
+    int i;
+    for (i = 0; i < tabb->buf_len; i++) {
+        if (tabb->buf[i] == '\n') {
+            pos = i + 1;
+            line2++;
+            if (line == line2) {
+                tabb->pos = pos;
+                tabb->line = line2;
+                tlines_len = 0;
+                return;
+            }
+        }
+    }
+    tabb->pos = pos;
+    tabb->line = line2;
+    tlines_len = 0;
 }
 
 void move_left (int n) {

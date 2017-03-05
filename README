@@ -97,6 +97,12 @@ Recent Files List
 When you close a file, that file is remembered in a recent files
 list, stored in ~/.les_recents. You can view the list by pressing F2.
 
+Resuming At Your Last Position
+==============================
+
+When you reopen a file that you viewed before, you will be positioned
+at the line you last left off.
+
 Improvements Over less
 ======================
 
@@ -132,5 +138,4 @@ create a man page
 gpl it
 ?searching
 tail -f
-restore last line viewed on file open
 
