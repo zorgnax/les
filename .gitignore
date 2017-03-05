@@ -1,3 +1,4 @@
 *.o
 les
-
+defines.h
+defines.mk

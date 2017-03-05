@@ -4,9 +4,9 @@ To install les, run:
     sudo make install
 
 To install into a different directory than /usr/local, supply the
-PREFIX variable to make:
+prefix option to the configure script:
 
-    export PREFIX=/usr
+    ./configure --prefix=/some/where/else
     make
     sudo make install
 

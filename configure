@@ -1,0 +1,62 @@
+#!/bin/bash
+
+args=()
+help=
+prefix="/usr/local"
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -h|--help)
+            help="yes"
+            ;;
+
+        --prefix*)
+            if [[ "$1" == *=* ]]; then
+                prefix=${1#*=}
+            else
+                shift
+                prefix=$1
+            fi
+            ;;
+
+        --)
+            shift
+            args+=($@)
+            break
+            ;;
+
+        --*)
+            echo "Unrecognized option $1"
+            exit 1
+            ;;
+
+        *)
+            args+=($1)
+    esac
+    shift
+done
+
+if [ ${#args[@]} -gt 0 ]; then
+    echo "Too many arguments"
+    exit 1
+fi
+
+if [ "$help" = "yes" ]; then
+    cat <<EOHELP
+Usage: ./configure [--help] [--prefix=dir]
+
+Options:
+    --help         help
+    --prefix=dir   prefix directory. default /usr/local
+EOHELP
+    exit 0
+fi
+
+echo "prefix set to $prefix"
+
+echo "Writing defines.h"
+echo "#define PREFIX \"$prefix\"" > defines.h
+
+echo "Writing defines.mk"
+echo "PREFIX = $prefix" > defines.mk
+

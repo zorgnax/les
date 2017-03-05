@@ -1,7 +1,6 @@
-CC = gcc -g
+CC = gcc
 LDLIBS = -lncurses -liconv
-PREFIX ?= /usr/local
-CPPFLAGS = -DPREFIX=\"$(PREFIX)\"
+include defines.mk
 
 all: les
 
@@ -23,6 +22,9 @@ tabs.o: tabs.c les.h
 readfile.o: readfile.c les.h
 recentfiles.o: recentfiles.c les.h
 
+defines.mk:
+	./configure
+
 install: les
 	mkdir -p $(PREFIX)/share/les
 	install -c lespipe $(PREFIX)/share/les
@@ -35,5 +37,9 @@ uninstall:
 clean:
 	rm -rf les *.o
 
-.PHONY: all clean install uninstall
+clean2:
+	rm -rf les *.o defines.h defines.mk
+
+
+.PHONY: all install uninstall clean clean2
 

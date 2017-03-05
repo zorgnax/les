@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include "defines.h"
 
 typedef struct {
     int len;
@@ -56,10 +57,6 @@ typedef struct {
     int nlines2;
     size_t cursor;
 } prompt_t;
-
-#ifndef PREFIX
-#define PREFIX "/usr/local"
-#endif
 
 #define UTF8_LENGTH(c)        \
     ((c & 0x80) == 0x00 ? 1 : \

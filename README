@@ -7,12 +7,9 @@ C using the terminfo, iconv, and pcre2 libraries.
 Status Bar
 ==========
 
-At the bottom of the screen is a status bar that shows the filename,
-current line number over the total number of lines, and the number
-of bytes of the input. Your progress through the file is shown with
-a dark blue background color. The current page is represented as a
-lighter blue background color. This gives a good visual representation
-of how far into the file you are.
+At the bottom of the screen is a status bar that shows information
+like the filename, line numbers, and the file size. The color in the
+background shows how far through the file you are.
 
 Tab Bar
 =======
@@ -136,4 +133,4 @@ gpl it
 ?searching
 tail -f
 restore last line viewed on file open
-F1 and F2 should toggle the screens, open right next to the current tab
+
