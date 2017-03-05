@@ -25,7 +25,7 @@ The reason this program needs to handle Unicode is to get the right
 number of characters on a line. This requires the program to know
 the number of bytes in each character, and the screen width of the
 character (characters in Unicode can take 0, 1, or 2 widths). the
-input file is assumed to be UTF-8. if it isn't, then you can give
+input file is assumed to be UTF-8. If it isn't, then you can give
 the correct encoding with the -e (encoding) option.
 
 Searching
@@ -33,9 +33,9 @@ Searching
 
 When you search, all matches will be highlighted in blue, the one
 you are up to in green. If the match is on the page you are currently
-viewing the page will not move. if it is less than a page away,
+viewing the page will not move. If it is less than a page away,
 then it will only move as far as it needs to show the next match.
-if the match is further away then it will position the screen with
+If the match is further away then it will position the screen with
 the match in the center. This is similar to how vim shows matches
 not less.
 

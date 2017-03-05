@@ -74,6 +74,7 @@ typedef struct {
 #define MARKED  4
 #define RECENTS 8
 #define HELP    16
+#define ERROR   32
 
 extern int tty;
 extern int line1;

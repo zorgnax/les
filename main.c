@@ -440,6 +440,12 @@ int main (int argc, char **argv) {
     }
 
     parse_args(argc, argv);
+    tabb = tabs[0];
+    open_tab_file();
+    if (tabb->state & ERROR) {
+        write(1, tabb->buf, tabb->buf_len);
+        exit(1);
+    }
 
     atexit(bye);
     signal2(SIGINT, sigint);
@@ -454,8 +460,6 @@ int main (int argc, char **argv) {
     tcgetattr(tty, &tcattr1);
     set_tcattr();
 
-    tabb = tabs[0];
-
     stage_cat(enter_ca_mode);
     stage_cat(keypad_xmit);
     stage_cat(cursor_invisible);
@@ -463,7 +467,6 @@ int main (int argc, char **argv) {
     stage_write();
 
     init_status();
-    open_tab_file();
     stage_tabs();
     draw_tab();
 

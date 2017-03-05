@@ -109,12 +109,11 @@ void read_file () {
         return;
     }
     if (nread < 0) {
-        int errno2 = errno;
-        tabb->mesg_size = 256;
-        tabb->mesg = malloc(tabb->mesg_size);
-        tabb->mesg_len = snprintf(tabb->mesg, tabb->mesg_size, " [%s]", strerror(errno2));
+        // for example trying to read a directory
+        tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "Cannot read %s: %s\n", tabb->name, strerror(errno));
+        tabb->state |= ERROR;
         tabb->state |= LOADED;
-        draw_status();
+        draw_tab();
         return;
     }
     if (nread == 0) {
@@ -194,10 +193,8 @@ void open_tab_file () {
     }
     int fd = open(tabb->name, O_RDONLY);
     if (fd < 0) {
-        int errno2 = errno;
-        tabb->mesg_size = 256;
-        tabb->mesg = malloc(tabb->mesg_size);
-        tabb->mesg_len = snprintf(tabb->mesg, tabb->mesg_size, " [%s]", strerror(errno2));
+        tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "Cannot open %s: %s\n", tabb->name, strerror(errno));
+        tabb->state |= ERROR;
         tabb->state |= LOADED;
         return;
     }
