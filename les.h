@@ -1,3 +1,6 @@
+// Copyright 2017 Jacob Gelbman <gelbman@gmail.com>
+// This file is licensed under the LGPL
+
 #ifndef __LES_H__
 #define __LES_H__
 
