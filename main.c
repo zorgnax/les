@@ -61,13 +61,16 @@ void sigchld () {
 }
 
 void sigtstp () {
+    signal(SIGTTOU, SIG_IGN);
     reset();
-    kill(0, SIGSTOP);
+    signal(SIGTTOU, SIG_DFL);
+    kill(getpid(), SIGSTOP);
 }
 
 void sigcont () {
     set_tcattr();
     stage_cat(enter_ca_mode);
+    stage_cat(keypad_xmit);
     stage_cat(cursor_invisible);
     init_line1();
     if (pr) {

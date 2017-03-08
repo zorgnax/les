@@ -126,6 +126,9 @@ In less, there are a lot of useless command line options and key
 binds that no one will use ever. For example (-a, -A, -b, -B, -c,
 -C, -d, -D, -e, -E, -f, -g, -G)
 
+In less, if you start searching and want to cancel, pressing esc
+doesn't work, it just adds more text to your search prompt.
+
 Todo
 ====
 
@@ -135,7 +138,6 @@ next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
 port to linux
 create a man page
-gpl it
 ?searching
 tail -f
 
