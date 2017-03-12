@@ -1,5 +1,5 @@
 CC = gcc
-LDLIBS = -lncurses -liconv
+LDLIBS = -lncurses -liconv -lpcre2-8
 include defines.mk
 
 all: les
@@ -10,7 +10,7 @@ all: les
 %.o:
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c $(filter %.c, $^) -o $@
 
-les: main.o charinfo.o prompt.o linewrap.o movement.o stage.o page.o tabs.o readfile.o recentfiles.o
+les: main.o charinfo.o prompt.o linewrap.o movement.o stage.o page.o tabs.o readfile.o recentfiles.o search.o
 main.o: main.c les.h
 charinfo.o: charinfo.c les.h
 prompt.o: prompt.c les.h
@@ -21,6 +21,7 @@ page.o: page.c les.h
 tabs.o: tabs.c les.h
 readfile.o: readfile.c les.h
 recentfiles.o: recentfiles.c les.h
+search.o: search.c les.h
 
 defines.mk:
 	./configure

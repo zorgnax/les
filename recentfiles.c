@@ -301,8 +301,9 @@ void add_recents_tab () {
     }
     for (i = 0; i < tabs_len; i++) {
         if (tabs[i]->state & RECENTS) {
-            select_tab(i);
-            stage_tabs();
+            current_tab = i;
+            tabb = tabs[current_tab];
+            change_tab();
             draw_tab();
             return;
         }
@@ -313,7 +314,8 @@ void add_recents_tab () {
     localtime_r(&t, now);
 
     add_tab("[Recent Files]", 0, LOADED|RECENTS);
-    select_tab(tabs_len - 1);
+    current_tab = tabs_len - 1;
+    tabb = tabs[current_tab];
     if (!recents_loaded) {
         load_recents_file();
     }
@@ -341,7 +343,7 @@ void add_recents_tab () {
 
     free(now);
     init_line1();
-    stage_tabs();
+    change_tab();
     move_end();
 }
 

@@ -34,6 +34,11 @@ void add_tab (const char *name, int fd, int state) {
     tabb->mark = 0;
     tabb->opened = time(NULL);
     tabb->realpath = NULL;
+    tabb->search_version = 0;
+    tabb->matches = NULL;
+    tabb->matches_len = 0;
+    tabb->matches_size = 0;
+    tabb->current_match = 0;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -128,26 +133,25 @@ void stage_tabs () {
 void next_tab () {
     current_tab = (current_tab + 1) % tabs_len;
     tabb = tabs[current_tab];
-    open_tab_file();
-    stage_tabs();
+    change_tab();
     draw_tab();
 }
 
 void prev_tab () {
     current_tab = current_tab > 0 ? (current_tab - 1) : (tabs_len - 1);
     tabb = tabs[current_tab];
-    open_tab_file();
-    stage_tabs();
+    change_tab();
     draw_tab();
 }
 
-void select_tab (int t) {
-    if (t == current_tab) {
-        return;
-    }
-    current_tab = t;
-    tabb = tabs[current_tab];
+void change_tab () {
     open_tab_file();
+    if (tabb->search_version != search_version) {
+        tabb->matches_len = 0;
+	// Can't search here since the buffer might not be loaded
+	// yet, best wait till user presses n.
+    }
+    stage_tabs();
 }
 
 void close_tab () {
@@ -176,9 +180,8 @@ void close_tab () {
     }
     free(tabb2);
 
-    open_tab_file();
     init_line1();
-    stage_tabs();
+    change_tab();
     draw_tab();
 }
 

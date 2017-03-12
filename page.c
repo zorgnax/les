@@ -18,12 +18,13 @@ typedef struct {
     char *tty;
     size_t tty_size;
     size_t tty_len;
+    char *matches;
+    size_t matches_size;
+    size_t matches_len;
 } status_t;
 
 status_t *status = NULL;
-tline_t *tlines = NULL;
-size_t tlines_len = 0;
-size_t tlines_size = 0;
+int atmatch = 0;
 
 char *human_readable (double size) {
     static char buf[32];
@@ -45,11 +46,23 @@ char *human_readable (double size) {
 }
 
 void stage_status () {
+    status->matches_len = 0;
+    if (active_search) {
+        if (tabb->matches_len == 0) {
+            status->matches_len = snprintf(status->matches, status->matches_size, " 0 matches");
+        }
+        else if (tabb->matches_len == 1) {
+            status->matches_len = snprintf(status->matches, status->matches_size, " 1 match");
+        }
+        else {
+            status->matches_len = snprintf(status->matches, status->matches_size, " %lu/%lu matches", tabb->current_match + 1, tabb->matches_len);
+        }
+    }
     char *hrsize = human_readable(tabb->buf_len);
     status->right_len = snprintf(
         status->right, status->right_size,
-        "%.*s %lu -> %lu %d/%d %s",
-	(int) status->tty_len, status->tty, tabb->pos, tlines[tlines_len - 1].end_pos,
+        "%.*s%.*s %d/%d %s",
+	(int) status->tty_len, status->tty, (int) status->matches_len, status->matches,
         tabb->line, tabb->nlines, hrsize);
     status->right_width = strnwidth(status->right, status->right_len);
 
@@ -152,6 +165,34 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
     }
 }
 
+void highlight_match (charinfo_t *cinfo, char *buf, int i) {
+    if (!tabb->matches_len) {
+        return;
+    }
+    if (atmatch < tabb->matches_len && tabb->matches[atmatch].start != tabb->matches[atmatch].end && i == tabb->matches[atmatch].end) {
+        stage_cat(exit_attribute_mode);
+        atmatch++;
+    }
+    if (atmatch < tabb->matches_len && i == tabb->matches[atmatch].start) {
+        if (atmatch == tabb->current_match) {
+            stage_cat(tparm(set_a_background, 16 + 36*0 + 6*2 + 0));
+        }
+        else {
+            stage_cat(tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
+        }
+    }
+}
+
+void highlight_match2 (charinfo_t *cinfo, char *buf, int i) {
+    if (!tabb->matches_len || atmatch >= tabb->matches_len) {
+        return;
+    }
+    if (i == tabb->matches[atmatch].end) {
+        stage_cat(exit_attribute_mode);
+        atmatch++;
+    }
+}
+
 void stage_character (charinfo_t *cinfo, char *buf, int i) {
     static char str[16];
     int j;
@@ -199,10 +240,13 @@ void stage_line_wrap (tline_t *tline) {
     int width = 0;
     for (i = tline->pos; i < tline->end_pos;) {
         get_char_info(&cinfo, tabb->buf, i);
+        highlight_match(&cinfo, tabb->buf, i);
         if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
+            highlight_match2(&cinfo, tabb->buf, i);
             break;
         }
         stage_character(&cinfo, tabb->buf, i);
+        highlight_match2(&cinfo, tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -240,10 +284,13 @@ void stage_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == 0x1b) {
             e++;
         }
+        highlight_match(&cinfo, tabb->buf, i);
         if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
+            highlight_match2(&cinfo, tabb->buf, i);
             break;
         }
         stage_character(&cinfo, tabb->buf, i);
+        highlight_match2(&cinfo, tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
@@ -257,6 +304,15 @@ void stage_line_nowrap (tline_t *tline) {
 
 void stage_tab2 (int n, tline_t *tlines, size_t tlines_len) {
     int i;
+    if (tabb->matches_len) {
+        atmatch = 0;
+        for (i = 0; i < tabb->matches_len; i++) {
+            if (tabb->matches[i].end >= tlines[0].pos) {
+                atmatch = i;
+                break;
+            }
+        }
+    }
     for (i = 0; i < n; i++) {
         if (i < tlines_len) {
             if (line_wrap) {
@@ -301,9 +357,12 @@ void init_status () {
     status->right_size = 1024;
     status->right_len = 0;
     status->right = malloc(status->right_size);
-    status->tty_size = 1024;
+    status->tty_size = 64;
     status->tty_len = 0;
     status->tty = malloc(status->tty_size);
+    status->matches_size = 64;
+    status->matches_len = 0;
+    status->matches = malloc(status->matches_size);
 }
 
 void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {

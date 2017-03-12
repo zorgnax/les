@@ -3,13 +3,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-tline_t *tlines2 = NULL;
-size_t tlines2_len = 0;
-size_t tlines2_size = 0;
-tline_t *tlines3 = NULL;
-size_t tlines3_len = 0;
-size_t tlines3_size = 0;
-
 void move_forward_long (int n) {
     size_t pos = tlines[tlines_len - 1].end_pos;
     get_tlines(tabb->buf, tabb->buf_len, pos, n - tlines_len + 1, &tlines2, &tlines2_len, &tlines2_size);
@@ -70,32 +63,10 @@ void move_backward (int n) {
     if (tabb->pos == 0) {
         return;
     }
-    int i, t, m, n2;
-    size_t pos = tabb->pos;
-    if (tlines3_size < n) {
-        tlines3_size = n;
-        tlines3 = realloc(tlines3, tlines3_size * sizeof (tline_t));
-    }
-    tlines3_len = 0;
-    while (1) {
-        int prev = prev_line(tabb->buf, tabb->buf_len, pos, 1);
-        get_tlines(tabb->buf, pos, prev, 0, &tlines2, &tlines2_len, &tlines2_size);
-        if (!tlines2_len) {
-            break;
-        }
-        for (i = tlines2_len - 1; i >= 0; i--) {
-            tlines3_len++;
-            tlines3[tlines3_len - 1] = tlines2[i];
-            if (tlines3_len == n) {
-                goto end;
-            }
-        }
-        pos = prev;
-    }
-
-    end:
-    m = tlines3_len;
+    get_tlines_backward(tabb->buf, tabb->buf_len, tabb->pos, n);
+    int m = tlines3_len;
     tabb->pos = tlines3[tlines3_len - 1].pos;
+    int i;
     for (i = 0; i < tlines3_len; i++) {
         if (tabb->buf[tlines3[i].end_pos - 1] == '\n') {
             tabb->line--;
@@ -110,7 +81,7 @@ void move_backward (int n) {
     }
     tlines2_len = m;
 
-    n2 = (lines - line1 - 1 - m) > tlines_len ? (tlines_len) : (lines - line1 - 1 - m);
+    int n2 = (lines - line1 - 1 - m) > tlines_len ? (tlines_len) : (lines - line1 - 1 - m);
     for (i = n2 - 1; i >= 0; i--) {
         tlines[i + m] = tlines[i];
     }
@@ -133,7 +104,7 @@ void move_start () {
 }
 
 void move_end () {
-    if (tabb->nlines < lines) {
+    if (tabb->nlines < lines - line1 - 1) {
         tabb->pos = 0;
         tabb->line = 1;
         draw_tab();
@@ -144,34 +115,9 @@ void move_end () {
     move_backward(lines - line1 - 1);
 }
 
-void move_pos (size_t pos) {
-    if (pos == tabb->pos) {
-        return;
-    }
-
-    // If pos occurs inside of a line, find the beginning of the line that contains it
-    if (pos != 0 && tabb->buf[pos - 1] != '\n') {
-        int prev = prev_line(tabb->buf, tabb->buf_len, pos, 0);
-        int next = next_line(tabb->buf, tabb->buf_len, pos, 1);
-        get_tlines(tabb->buf, next, prev, 0, &tlines2, &tlines2_len, &tlines2_size);
-        int i;
-        for (i = 0; i < tlines2_len; i++) {
-            if (pos < tlines2[i].end_pos) {
-                pos = tlines2[i].pos;
-                break;
-            }
-        }
-    }
-
-    int nlines = 0;
-    if (pos > tabb->pos) {
-        nlines = count_lines(tabb->buf + tabb->pos, pos - tabb->pos);
-        tabb->line += nlines;
-    }
-    else {
-        nlines = count_lines(tabb->buf + pos, tabb->pos - pos);
-        tabb->line -= nlines;
-    }
+void move_to_pos (size_t pos) {
+    pos = line_before_pos(pos, 0);
+    tabb->line += count_lines_atob(tabb->buf, tabb->pos, pos);
     tabb->pos = pos;
     draw_tab();
 }

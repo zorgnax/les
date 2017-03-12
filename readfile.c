@@ -23,6 +23,17 @@ int count_lines (char *buf, size_t len) {
     return nlines;
 }
 
+int count_lines_atob (char *buf, size_t a, size_t b) {
+    int nlines = 0;
+    if (a < b) {
+        nlines = count_lines(buf + a, b - a);
+    }
+    else {
+        nlines = -count_lines(buf + b, a - b);
+    }
+    return nlines;
+}
+
 void add_encoded_input (char *buf, size_t buf_len) {
     char *buf_ptr = buf;
     size_t buf_left = buf_len;

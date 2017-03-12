@@ -104,7 +104,7 @@ void restore_mark () {
     if (!(tabb->state & MARKED)) {
         return;
     }
-    move_pos(tabb->mark);
+    move_to_pos(tabb->mark);
 }
 
 char *usage_text () {
@@ -138,6 +138,7 @@ char *usage_text () {
         "    u             go up half a screen\n"
         "    U,⇞           go up a screen\n"
         "    w             toggle line wrap\n"
+        "    /             search\n"
         "    F1            view help\n"
         "    F2            view recently opened files\n";
     return str;
@@ -156,15 +157,17 @@ void add_help_tab () {
     }
     for (i = 0; i < tabs_len; i++) {
         if (tabs[i]->state & HELP) {
-            select_tab(i);
-            stage_tabs();
+            current_tab = i;
+            tabb = tabs[current_tab];
+            change_tab();
             draw_tab();
             return;
         }
     }
 
     add_tab("[Help]", 0, LOADED|HELP);
-    select_tab(tabs_len - 1);
+    current_tab = tabs_len - 1;
+    tabb = tabs[current_tab];
 
     char *str = usage_text();
     int len = strlen(str);
@@ -174,9 +177,10 @@ void add_help_tab () {
     }
     strcpy(tabb->buf, str);
     tabb->buf_len = len;
+    tabb->nlines = count_lines(tabb->buf, tabb->buf_len);
 
     init_line1();
-    stage_tabs();
+    change_tab();
     move_end();
 }
 
@@ -228,11 +232,21 @@ int read_key (char *buf, int len) {
         case 'M':
             restore_mark();
             break;
+        case 'n':
+            next_match();
+            break;
+        case 'N':
+            prev_match();
+            break;
         case 'q':
             close_tab();
             break;
         case 'Q':
             exit(0);
+            break;
+        case 'R':
+            stage_tabs();
+            draw_tab();
             break;
         case 't':
             next_tab();
@@ -264,10 +278,6 @@ int read_key (char *buf, int len) {
             break;
         case -0x40 + 'L':
             move_right(1);
-            break;
-        case -0x40 + 'R':
-            stage_tabs();
-            draw_tab();
             break;
         case -0x40 + 'U':
             move_backward(10000);

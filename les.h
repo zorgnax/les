@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <stdarg.h>
 #include "defines.h"
 
 typedef struct {
@@ -21,6 +22,11 @@ typedef struct {
     unsigned int to;
     int width;
 } width_range_t;
+
+typedef struct {
+    size_t start;
+    size_t end;
+} match_t;
 
 typedef struct {
     const char *name;
@@ -44,6 +50,11 @@ typedef struct {
     time_t opened;
     char *realpath;
     int last_line;
+    int search_version;
+    match_t *matches;
+    size_t matches_len;
+    size_t matches_size;
+    size_t current_match;
 } tab_t;
 
 typedef struct {
@@ -83,17 +94,27 @@ typedef struct {
 
 extern int tty;
 extern int line1;
-extern tab_t *tabb;
 extern int line_wrap;
 extern int tab_width;
-extern tline_t *tlines;
-extern size_t tlines_len;
-extern size_t tlines_size;
 extern prompt_t *pr;
 extern int interrupt;
 extern size_t tabs_len;
 extern tab_t **tabs;
+extern int current_tab;
+extern tab_t *tabb;
 extern char *lespipe;
+extern int active_search;
+extern int search_version;
+
+extern tline_t *tlines;
+extern size_t tlines_len;
+extern size_t tlines_size;
+extern tline_t *tlines2;
+extern size_t tlines2_len;
+extern size_t tlines2_size;
+extern tline_t *tlines3;
+extern size_t tlines3_len;
+extern size_t tlines3_size;
 
 // main.c
 int read_key (char *buf, int len);
@@ -105,11 +126,10 @@ int strnwidth (const char *str, size_t len);
 void get_char_info (charinfo_t *cinfo, const char *buf, int i);
 
 // prompt.c
-void search ();
 void draw_prompt ();
 char *gets_prompt (prompt_t *ppr);
 prompt_t *init_prompt (const char *prompt);
-void alert (char *mesg);
+void alert (char *fmt, ...);
 
 // linewrap.c
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
@@ -117,6 +137,10 @@ void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlin
 void get_nowrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
 int prev_line (char *buf, size_t len, size_t pos, int n);
 int next_line (char *buf, size_t len, size_t pos, int n);
+void get_tlines_backward (char *buf, size_t len, size_t pos, int max);
+int find_pos_backward (int max, size_t pos2, size_t *pos3);
+int find_pos_forward (int max, size_t pos2, size_t *pos3);
+size_t line_before_pos (size_t pos, int n);
 
 // movement.c
 void move_forward (int n);
@@ -127,13 +151,15 @@ void move_left (int n);
 void move_right (int n);
 void move_line_left ();
 void move_line_right ();
-void move_pos (size_t pos);
+void move_to_pos (size_t pos);
 void move_to_line (int line);
 
 // stage.c
 void stage_init ();
 void stage_cat (const char *str);
 void stage_ncat (const char *str, size_t n);
+void stage_vprintf (const char *fmt, va_list args);
+void stage_printf (const char *fmt, ...);
 void stage_write ();
 
 // page.c
@@ -149,7 +175,7 @@ void close_tab ();
 void next_tab ();
 void prev_tab ();
 void add_tab (const char *name, int fd, int state);
-void select_tab (int t);
+void change_tab ();
 void init_line1 ();
 
 // readfile.c
@@ -157,6 +183,7 @@ void read_file ();
 void set_input_encoding (char *encoding);
 void open_tab_file ();
 int count_lines (char *buf, size_t len);
+int count_lines_atob (char *buf, size_t a, size_t b);
 
 // recentfiles.c
 void add_recent_tab (tab_t *tabb);
@@ -164,6 +191,11 @@ void save_recents_file ();
 void add_recents_tab ();
 void load_recents_file ();
 void get_last_line ();
+
+// search.c
+void search ();
+void next_match ();
+void prev_match ();
 
 #endif
 

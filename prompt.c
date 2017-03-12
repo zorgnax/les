@@ -5,9 +5,9 @@
 #include <term.h>
 #include <errno.h>
 #include <string.h>
+#include <stdarg.h>
 
 prompt_t *pr = NULL;
-prompt_t *spr = NULL;
 int prompt_done = 0;
 
 void stage_prompt_line (tline_t *tline) {
@@ -102,7 +102,7 @@ void prompt_left_word () {
     int i, j, whitespace1, whitespace2;
     for (i = pr->cursor - 1; (pr->buf[i] & 0xc0) == 0x80; i--)
         ;
-    for (; i >= pr->prompt_len;) {
+    for (; i > pr->prompt_len;) {
         j = i - 1;
         while ((pr->buf[j] & 0xc0) == 0x80) {
             j--;
@@ -235,6 +235,9 @@ int getc_prompt (char *buf, int len) {
     if (buf[0] == '\n') {
         prompt_done = 1;
     }
+    else if (buf[0] == '\e' && len == 1) {
+        interrupt = 1;
+    }
     else if (strncmp(buf, "\eOD", 3) == 0) { // left
         prompt_left();
     }
@@ -277,18 +280,18 @@ int getc_prompt (char *buf, int len) {
     else if (strncmp(buf, "\eOF", 3) == 0) { // end
         pr->cursor = pr->len;
     }
-    else if (buf[0] == '\e' && len == 1) {
-        interrupt = 1;
-    }
     return len;
 }
 
-void alert (char *mesg) {
+void alert (char *fmt, ...) {
+    va_list args;
     interrupt = 0;
     stage_cat(tparm(change_scroll_region, 0, lines - 1));
     stage_cat(tparm(cursor_address, lines - 1, 0));
     stage_cat("\n");
-    stage_cat(mesg);
+    va_start(args, fmt);
+    stage_vprintf(fmt, args);
+    va_end(args);
     stage_write();
 
     char buf[16];
@@ -325,7 +328,6 @@ void gets2_prompt () {
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
     stage_tabs();
-    draw_tab();
 }
 
 char *gets_prompt (prompt_t *ppr) {
@@ -382,15 +384,5 @@ prompt_t *init_prompt (const char *prompt) {
     pr->cursor = pr->len;
     pr->nlines = 1;
     return pr;
-}
-
-void search () {
-    if (!spr) {
-        spr = init_prompt("/");
-    }
-    char *str = gets_prompt(spr);
-    if (interrupt) {
-        return;
-    }
 }
 

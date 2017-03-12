@@ -1,8 +1,7 @@
 les
 ===
 
-This is a pager program similar to less and more. It is written in
-C using the terminfo, iconv, and pcre2 libraries.
+This is a pager program similar to less and more.
 
 Status Bar
 ==========
@@ -21,23 +20,30 @@ and Q to close all of them.
 Unicode
 =======
 
-The reason this program needs to handle Unicode is to get the right
-number of characters on a line. This requires the program to know
-the number of bytes in each character, and the screen width of the
-character (characters in Unicode can take 0, 1, or 2 widths). the
-input file is assumed to be UTF-8. If it isn't, then you can give
-the correct encoding with the -e (encoding) option.
+This program handles Unicode in order to get the right number of
+characters on a line. This requires the program to know the number
+of bytes in each character, and the screen width of the character
+(characters in Unicode can take 0, 1, or 2 widths). the input file
+is assumed to be UTF-8. If it isn't, then you can give the correct
+encoding with the -e (encoding) option.
 
 Searching
 =========
+
+This program uses the PCRE2 library to do searches. If unfamiliar
+with regular expressions, you can read its syntax documentation at
+http://www.pcre.org/current/doc/html/pcre2syntax.html. More thorough
+documentation is at http://www.pcre.org/current/doc/html/pcre2pattern.html.
 
 When you search, all matches will be highlighted in blue, the one
 you are up to in green. If the match is on the page you are currently
 viewing the page will not move. If it is less than a page away,
 then it will only move as far as it needs to show the next match.
 If the match is further away then it will position the screen with
-the match in the center. This is similar to how vim shows matches
-not less.
+the match in the center. If you move the screen away from the current
+match, the next time you press n, the program will search forward
+for a match from the beginning of the screen you are currently
+looking at.
 
 Man Pages
 =========
@@ -138,6 +144,12 @@ next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
 port to linux
 create a man page
-?searching
 tail -f
+reload tab (probably not if stdin)
+recent files list should show a separator for Today, Friday, Thursday, etc back a week
+multiline matches
+matching when the match is off the screen to the right
+search history
+match highlights on something that already has ansi escapes doesn't work
+non line wrapped text searching
 
