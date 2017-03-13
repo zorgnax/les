@@ -209,9 +209,9 @@ void prompt_kill_backward () {
     pr->cursor -= len;
 }
 
-void addc_prompt (char *buf, int len) {
+void puts_prompt (char *buf, int len) {
     int i;
-    if (pr->len + len >= pr->size) {
+    while (pr->len + len >= pr->size) {
         pr->size *= 2;
         pr->buf = realloc(pr->buf, pr->size);
     }
@@ -225,18 +225,100 @@ void addc_prompt (char *buf, int len) {
     pr->cursor += len;
 }
 
+void prev_history () {
+    if (!pr->history_len) {
+        return;
+    }
+    if (pr->history_skip >= pr->history_len) {
+        return;
+    }
+    if (pr->history_skip == 0) {
+        // Save current string
+        while (pr->len - pr->prompt_len + 1 > pr->hcstr_size) {
+            pr->hcstr_size *= 2;
+            pr->hcstr = realloc(pr->hcstr, pr->hcstr_size);
+        }
+        strncpy(pr->hcstr, pr->buf + pr->prompt_len, pr->len - pr->prompt_len);
+        pr->hcstr_len = pr->len - pr->prompt_len;
+        pr->hcstr[pr->hcstr_len] = '\0';
+    }
+    size_t orig_cursor = pr->cursor;
+    char *str2 = pr->buf + pr->prompt_len;
+    size_t str2_len = pr->cursor - pr->prompt_len;
+    int i;
+    for (i = pr->history_skip + 1; i <= pr->history_len; i++) {
+        char *str = pr->history[pr->history_len - i];
+        size_t len = strlen(str);
+        if (len < str2_len) {
+            continue;
+        }
+        if (strncmp(str, str2, str2_len) == 0) {
+            pr->len = pr->prompt_len;
+            pr->cursor = pr->prompt_len;
+            puts_prompt(str, len);
+            pr->cursor = orig_cursor;
+            pr->history_skip = i;
+            return;
+        }
+    }
+}
+
+void next_history () {
+    if (!pr->history_len) {
+        return;
+    }
+    if (pr->history_skip < 1) {
+        return;
+    }
+    size_t orig_cursor = pr->cursor;
+    char *str2 = pr->buf + pr->prompt_len;
+    size_t str2_len = pr->cursor - pr->prompt_len;
+
+    while (pr->history_skip > 1) {
+        pr->history_skip--;
+        char *str = pr->history[pr->history_len - pr->history_skip];
+        size_t len = strlen(str);
+        if (len < str2_len) {
+            continue;
+        }
+        if (strncmp(str, str2, str2_len) == 0) {
+            pr->len = pr->prompt_len;
+            pr->cursor = pr->prompt_len;
+            puts_prompt(str, len);
+            pr->cursor = orig_cursor;
+            return;
+        }
+    }
+
+    // Show the set aside current string
+    pr->history_skip--;
+    pr->len = pr->prompt_len;
+    pr->cursor = pr->prompt_len;
+    puts_prompt(pr->hcstr, pr->hcstr_len);
+    pr->cursor = orig_cursor;
+}
+
 int getc_prompt (char *buf, int len) {
     unsigned char c = buf[0];
+    int len2 = len;
+    int history = 0;
     if ((c > 0x1f && c < 0x7f) || (c > 0x7f)) {
         int len2 = UTF8_LENGTH(c);
-        addc_prompt(buf, len2);
-        return len2;
+        puts_prompt(buf, len2);
     }
-    if (buf[0] == '\n') {
+    else if (buf[0] == '\n') {
         prompt_done = 1;
     }
     else if (buf[0] == '\e' && len == 1) {
         interrupt = 1;
+    }
+    else if (strncmp(buf, "\eOB", 3) == 0) { // down
+        next_history();
+        history = 1;
+    }
+    else if (strncmp(buf, "\eOA", 3) == 0) { // up
+        prev_history();
+        history = 1;
     }
     else if (strncmp(buf, "\eOD", 3) == 0) { // left
         prompt_left();
@@ -280,7 +362,11 @@ int getc_prompt (char *buf, int len) {
     else if (strncmp(buf, "\eOF", 3) == 0) { // end
         pr->cursor = pr->len;
     }
-    return len;
+
+    if (!history) {
+        pr->history_skip = 0;
+    }
+    return len2;
 }
 
 void alert (char *fmt, ...) {
@@ -311,6 +397,7 @@ void gets1_prompt () {
     pr->len = pr->prompt_len;
     pr->cursor = pr->len;
     pr->nlines = 1;
+    pr->history_skip = 0;
     if (!tlines2_size) {
         tlines2_size = lines;
         tlines2 = malloc(tlines_size * sizeof (tline_t));
@@ -324,12 +411,32 @@ void gets1_prompt () {
     stage_write();
 }
 
+void add_history (char *str, size_t len) {
+    // Don't add duplicates
+    if (pr->history_len) {
+        if (strncmp(pr->history[pr->history_len - 1], str, len) == 0) {
+            return;
+        }
+    }
+    if (pr->history_len == pr->history_size) {
+        pr->history_size *= 2;
+        pr->history = realloc(pr->history, pr->history_size * sizeof (char *));
+    }
+    pr->history_len++;
+    pr->history[pr->history_len - 1] = strndup(str, len);
+}
+
 void gets2_prompt () {
     if (pr->len == pr->size) {
         pr->size *= 2;
         pr->buf = realloc(pr->buf, pr->size);
     }
     pr->buf[pr->len] = '\0';
+    char *str = pr->buf + pr->prompt_len;
+    size_t len = pr->len - pr->prompt_len;
+    if (len) {
+        add_history(str, len);
+    }
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
     stage_tabs();
@@ -388,6 +495,13 @@ prompt_t *init_prompt (const char *prompt) {
     pr->len = pr->prompt_len;
     pr->cursor = pr->len;
     pr->nlines = 1;
+    pr->history_size = 128;
+    pr->history_len = 0;
+    pr->history = malloc(pr->history_size * sizeof (char *));
+    pr->history_skip = 0;
+    pr->hcstr_size = 128;
+    pr->hcstr_len = 0;
+    pr->hcstr = malloc(pr->hcstr_size);
     return pr;
 }
 

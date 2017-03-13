@@ -71,6 +71,13 @@ typedef struct {
     int nlines;
     int nlines2;
     size_t cursor;
+    char **history;
+    size_t history_len;
+    size_t history_size;
+    size_t history_skip;
+    char *hcstr;
+    size_t hcstr_len;
+    size_t hcstr_size;
 } prompt_t;
 
 #define UTF8_LENGTH(c)        \

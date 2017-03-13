@@ -1,4 +1,5 @@
 CC = gcc
+CFLAGS =
 LDLIBS = -lncurses -liconv -lpcre2-8
 include defines.mk
 

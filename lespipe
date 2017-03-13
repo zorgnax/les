@@ -9,7 +9,7 @@ fi
 case $(echo "$1" | tr '[:upper:]' '[:lower:]') in
     *.tar.gz|*.tgz|*.tar.bz2|*.tar.tb2|*.tbz|*.tbz2)
         echo tar
-        du -h "$1" | cut -f1
+        du -h "$1" | cut -f1 | sed 's/ *//'
         tar -tf "$1"
         ;;
 
