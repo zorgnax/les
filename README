@@ -138,7 +138,6 @@ doesn't work, it just adds more text to your search prompt.
 Todo
 ====
 
-/searching
 next/prev function (C like or Perl like), highlight it too someway
 next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
@@ -147,9 +146,8 @@ create a man page
 tail -f
 reload tab (probably not if stdin)
 recent files list should show a separator for Today, Friday, Thursday, etc back a week
-multiline matches
-matching when the match is off the screen to the right
+recent files replace home directory with ~ or even nothing
 search history
-match highlights on something that already has ansi escapes doesn't work
-non line wrapped text searching
 
+matching when the match is off the screen to the right
+matching multiline strings doesn't always cycle correctly. for example. pol.*?samsung in samsung.txt

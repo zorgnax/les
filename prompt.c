@@ -38,28 +38,28 @@ void stage_prompt_line (tline_t *tline) {
 
 void draw_prompt () {
     stage_cat(tparm(cursor_address, lines - pr->nlines, 0));
-    tlines_len = 0;
-    get_wrap_tlines(pr->buf, pr->len, 0, 0, &tlines, &tlines_len, &tlines_size);
+    tlines2_len = 0;
+    get_wrap_tlines(pr->buf, pr->len, 0, 0, &tlines2, &tlines2_len, &tlines2_size);
     if (tlines_len < pr->nlines2) {
         stage_cat(clr_eos);
     }
-    pr->nlines2 = tlines_len;
-    if (tlines_len > pr->nlines) {
-        pr->nlines = tlines_len;
+    pr->nlines2 = tlines2_len;
+    if (tlines2_len > pr->nlines) {
+        pr->nlines = tlines2_len;
     }
     int i;
-    for (i = 0; i < tlines_len; i++) {
-        stage_prompt_line(tlines + i);
-        if (i != tlines_len - 1) {
+    for (i = 0; i < tlines2_len; i++) {
+        stage_prompt_line(tlines2 + i);
+        if (i != tlines2_len - 1) {
             stage_cat("\n");
         }
     }
     int cursory = 0;
     int cursorx = 0;
-    for (i = 0; i < tlines_len; i++) {
-        if (pr->cursor <= tlines[i].end_pos) {
+    for (i = 0; i < tlines2_len; i++) {
+        if (pr->cursor <= tlines2[i].end_pos) {
             cursory = i;
-            cursorx = strnwidth(pr->buf + tlines[i].pos, pr->cursor - tlines[i].pos);
+            cursorx = strnwidth(pr->buf + tlines2[i].pos, pr->cursor - tlines2[i].pos);
             if (cursorx >= columns) {
                 cursory++;
                 cursorx = 0;
@@ -311,10 +311,15 @@ void gets1_prompt () {
     pr->len = pr->prompt_len;
     pr->cursor = pr->len;
     pr->nlines = 1;
+    if (!tlines2_size) {
+        tlines2_size = lines;
+        tlines2 = malloc(tlines_size * sizeof (tline_t));
+    }
     stage_cat(tparm(change_scroll_region, 0, lines - 1));
     stage_cat(cursor_normal);
     stage_cat(tparm(cursor_address, lines - 1, 0));
-    stage_cat("\n");
+    stage_cat("\r");
+    stage_cat(clr_eol);
     stage_cat(pr->prompt);
     stage_write();
 }

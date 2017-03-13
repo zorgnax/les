@@ -25,6 +25,9 @@ typedef struct {
 
 status_t *status = NULL;
 int atmatch = 0;
+char *escapes = NULL;
+size_t escapes_len = 0;
+size_t escapes_size = 0;
 
 char *human_readable (double size) {
     static char buf[32];
@@ -165,30 +168,84 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
     }
 }
 
-void highlight_match (charinfo_t *cinfo, char *buf, int i) {
+void escapes_record (charinfo_t *cinfo, char *buf, int i) {
+    if (buf[i] == '\e' && cinfo->len > 1) {
+        if (strncmp(buf + i, "\e[0m", cinfo->len) == 0 ||
+            strncmp(buf + i, "\e[m", cinfo->len) == 0) {
+            escapes_len = 0;
+        }
+        else {
+            if (escapes_len + cinfo->len <= escapes_size) {
+                strncpy(escapes + escapes_len, buf + i, cinfo->len);
+                escapes_len += cinfo->len;
+            }
+        }
+    }
+}
+
+void escapes_start () {
+    if (escapes_len) {
+        stage_ncat(escapes, escapes_len);
+    }
+}
+
+void escapes_end () {
+    if (escapes_len) {
+        stage_cat(exit_attribute_mode);
+    }
+}
+
+void highlight_match3 () {
+    if (escapes_len) {
+        stage_cat(exit_attribute_mode);
+    }
+    if (atmatch == tabb->current_match) {
+        stage_cat(tparm(set_a_background, 16 + 36*0 + 6*2 + 0));
+    }
+    else {
+        stage_cat(tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
+    }
+}
+
+void highlight_match_start (char *buf, int i) {
+    if (!tabb->matches_len || atmatch >= tabb->matches_len) {
+        return;
+    }
+    if (i > tabb->matches[atmatch].start && i < tabb->matches[atmatch].end) {
+        highlight_match3();
+    }
+}
+
+void highlight_match_end (char *buf, int i) {
+    if (!tabb->matches_len || atmatch >= tabb->matches_len) {
+        return;
+    }
+    if (i > tabb->matches[atmatch].start && i < tabb->matches[atmatch].end) {
+        stage_cat(exit_attribute_mode);
+    }
+}
+
+void highlight_match (char *buf, int i) {
     if (!tabb->matches_len) {
         return;
     }
     if (atmatch < tabb->matches_len && tabb->matches[atmatch].start != tabb->matches[atmatch].end && i == tabb->matches[atmatch].end) {
         stage_cat(exit_attribute_mode);
+        escapes_start();
         atmatch++;
     }
     if (atmatch < tabb->matches_len && i == tabb->matches[atmatch].start) {
-        if (atmatch == tabb->current_match) {
-            stage_cat(tparm(set_a_background, 16 + 36*0 + 6*2 + 0));
-        }
-        else {
-            stage_cat(tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
-        }
+        highlight_match3();
     }
 }
 
-void highlight_match2 (charinfo_t *cinfo, char *buf, int i) {
+void highlight_match2 (char *buf, int i) {
     if (!tabb->matches_len || atmatch >= tabb->matches_len) {
         return;
     }
     if (i == tabb->matches[atmatch].end) {
         stage_cat(exit_attribute_mode);
+        escapes_start();
         atmatch++;
     }
 }
@@ -236,69 +293,78 @@ void stage_character (charinfo_t *cinfo, char *buf, int i) {
 
 void stage_line_wrap (tline_t *tline) {
     charinfo_t cinfo;
-    int i;
     int width = 0;
-    for (i = tline->pos; i < tline->end_pos;) {
+    int i = tline->pos;
+    escapes_start();
+    highlight_match_start(tabb->buf, i);
+    while (i < tline->end_pos) {
         get_char_info(&cinfo, tabb->buf, i);
-        highlight_match(&cinfo, tabb->buf, i);
+        highlight_match(tabb->buf, i);
         if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
-            highlight_match2(&cinfo, tabb->buf, i);
+            highlight_match2(tabb->buf, i);
             break;
         }
+        escapes_record(&cinfo, tabb->buf, i);
         stage_character(&cinfo, tabb->buf, i);
-        highlight_match2(&cinfo, tabb->buf, i);
+        highlight_match2(tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
+    highlight_match_end(tabb->buf, i);
+    escapes_end();
     if (width < columns) {
         stage_cat(clr_eol);
     }
 }
 
 void stage_line_nowrap (tline_t *tline) {
-    int i;
-    int e = 0;
     int width = 0;
     charinfo_t cinfo;
-    for (i = tline->pos; i < tline->end_pos;) {
+    int i = tline->pos;
+    escapes_start();
+    highlight_match_start(tabb->buf, i);
+    while (i < tline->end_pos) {
         get_char_info(&cinfo, tabb->buf, i);
         if (width >= tabb->column && (!tabb->column || cinfo.width)) {
             break;
         }
         if (tabb->buf[i] == 0x1b && cinfo.len > 1) {
-            e++;
+            escapes_record(&cinfo, tabb->buf, i);
             stage_ncat(tabb->buf + i, cinfo.len);
         }
+        highlight_match(tabb->buf, i);
+        highlight_match2(tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
     if (i == tline->end_pos) {
+        highlight_match_end(tabb->buf, i);
+        escapes_end();
         stage_cat(clr_eol);
         return;
     }
-    for (; i < tline->end_pos;) {
+    while (i < tline->end_pos) {
         get_char_info(&cinfo, tabb->buf, i);
         if (width + cinfo.width > columns + tabb->column) {
             break;
         }
-        if (tabb->buf[i] == 0x1b) {
-            e++;
+        if (tabb->buf[i] == 0x1b && cinfo.len > 1) {
+            escapes_record(&cinfo, tabb->buf, i);
         }
-        highlight_match(&cinfo, tabb->buf, i);
+        highlight_match(tabb->buf, i);
         if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
-            highlight_match2(&cinfo, tabb->buf, i);
+            highlight_match2(tabb->buf, i);
             break;
         }
         stage_character(&cinfo, tabb->buf, i);
-        highlight_match2(&cinfo, tabb->buf, i);
+        highlight_match2(tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
+    highlight_match_end(tabb->buf, i);
+    escapes_end();
     if (width < columns + tabb->column) {
         stage_cat(clr_eol);
-    }
-    if (e) {
-        stage_cat(exit_attribute_mode);
     }
 }
 
@@ -313,6 +379,7 @@ void stage_tab2 (int n, tline_t *tlines, size_t tlines_len) {
             }
         }
     }
+    escapes[0] = '\0';
     for (i = 0; i < n; i++) {
         if (i < tlines_len) {
             if (line_wrap) {
@@ -346,7 +413,7 @@ void draw_tab () {
     stage_write();
 }
 
-void init_status () {
+void init_page () {
     status = malloc(sizeof (status_t));
     status->buf_size = 1024;
     status->buf_len = 0;
@@ -363,6 +430,9 @@ void init_status () {
     status->matches_size = 64;
     status->matches_len = 0;
     status->matches = malloc(status->matches_size);
+    escapes_size = 256;
+    escapes_len = 0;
+    escapes = malloc(escapes_size);
 }
 
 void set_ttybuf (charinfo_t *cinfo, char *buf, int len) {

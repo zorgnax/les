@@ -478,7 +478,7 @@ int main (int argc, char **argv) {
     stage_cat(cursor_invisible);
     stage_write();
 
-    init_status();
+    init_page();
     init_line1();
     stage_tabs();
     draw_tab();
