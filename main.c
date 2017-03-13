@@ -184,6 +184,17 @@ void add_help_tab () {
     move_end();
 }
 
+void toggle_line_wrap () {
+    if (line_wrap) {
+        line_wrap = 0;
+        tabb->column = 0;
+    }
+    else {
+        line_wrap = 1;
+    }
+    draw_tab();
+}
+
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf, 0);
@@ -261,8 +272,7 @@ int read_key (char *buf, int len) {
             move_backward(lines - line1 - 2);
             break;
         case 'w':
-            line_wrap = !line_wrap;
-            draw_tab();
+            toggle_line_wrap();
             break;
         case '%':
             printf("%.2f%% \n", (double) tabb->pos / tabb->buf_len * 100);

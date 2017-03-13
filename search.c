@@ -38,6 +38,28 @@ void move_to_match () {
     size_t pos = tabb->matches[tabb->current_match].start;
     size_t pos2;
     int retval;
+    // Move the page to the right to be able to see the match
+    if (!line_wrap) {
+        int bol = prev_line(tabb->buf, tabb->buf_len, pos, 0);
+        int width = strnwidth(tabb->buf + bol, pos - bol);
+        if (width < columns) {
+            tabb->column = 0;
+        }
+        else {
+            int end = tabb->matches[tabb->current_match].end;
+            int eol = next_line(tabb->buf, tabb->buf_len, pos, 1);
+            if (eol < end) {
+                end = eol;
+            }
+            int width2 = strnwidth(tabb->buf + pos, end - pos);
+            if (width2 > columns) {
+                tabb->column = width - (columns / 2);
+            }
+            else {
+                tabb->column = width - columns + width2;
+            }
+        }
+    }
     if (pos >= tabb->pos && pos < tlines[tlines_len - 1].end_pos) {
         return;
     }

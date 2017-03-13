@@ -220,7 +220,7 @@ void highlight_match_end (char *buf, int i) {
     if (!tabb->matches_len || atmatch >= tabb->matches_len) {
         return;
     }
-    if (i > tabb->matches[atmatch].start && i < tabb->matches[atmatch].end) {
+    if (i > tabb->matches[atmatch].start && i <= tabb->matches[atmatch].end) {
         stage_cat(exit_attribute_mode);
     }
 }
@@ -322,6 +322,9 @@ void stage_line_nowrap (tline_t *tline) {
     charinfo_t cinfo;
     int i = tline->pos;
     escapes_start();
+    if (atmatch < tabb->matches_len && tabb->matches[atmatch].end < i) {
+        atmatch++;
+    }
     highlight_match_start(tabb->buf, i);
     while (i < tline->end_pos) {
         get_char_info(&cinfo, tabb->buf, i);

@@ -31,9 +31,9 @@ Searching
 =========
 
 This program uses the PCRE2 library to do searches. If unfamiliar
-with regular expressions, you can read its syntax documentation at
-http://www.pcre.org/current/doc/html/pcre2syntax.html. More thorough
-documentation is at http://www.pcre.org/current/doc/html/pcre2pattern.html.
+with the PCRE2 syntax, you can read all about it at
+http://www.pcre.org/current/doc/html/pcre2syntax.html or the longer
+document at http://www.pcre.org/current/doc/html/pcre2pattern.html.
 
 When you search, all matches will be highlighted in blue, the one
 you are up to in green. If the match is on the page you are currently
@@ -44,6 +44,8 @@ the match in the center. If you move the screen away from the current
 match, the next time you press n, the program will search forward
 for a match from the beginning of the screen you are currently
 looking at.
+
+The number of matches is shown in the status bar.
 
 Man Pages
 =========
@@ -151,5 +153,3 @@ reload tab (probably not if stdin)
 recent files list should show a separator for Today, Friday, Thursday, etc back a week
 recent files replace home directory with ~ or even nothing
 search history
-
-matching when the match is off the screen to the right
