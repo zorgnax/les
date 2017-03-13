@@ -411,7 +411,7 @@ void gets1_prompt () {
     stage_write();
 }
 
-void add_history (char *str, size_t len) {
+void add_history (prompt_t *pr, char *str, size_t len) {
     // Don't add duplicates
     if (pr->history_len) {
         if (strncmp(pr->history[pr->history_len - 1], str, len) == 0) {
@@ -435,7 +435,7 @@ void gets2_prompt () {
     char *str = pr->buf + pr->prompt_len;
     size_t len = pr->len - pr->prompt_len;
     if (len) {
-        add_history(str, len);
+        add_history(pr, str, len);
     }
     stage_cat(cursor_invisible);
     stage_cat(tparm(change_scroll_region, line1, lines - 2));
@@ -499,6 +499,7 @@ prompt_t *init_prompt (const char *prompt) {
     pr->history_len = 0;
     pr->history = malloc(pr->history_size * sizeof (char *));
     pr->history_skip = 0;
+    pr->history_new = 0;
     pr->hcstr_size = 128;
     pr->hcstr_len = 0;
     pr->hcstr = malloc(pr->hcstr_size);

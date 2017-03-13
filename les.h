@@ -75,6 +75,7 @@ typedef struct {
     size_t history_len;
     size_t history_size;
     size_t history_skip;
+    size_t history_new;
     char *hcstr;
     size_t hcstr_len;
     size_t hcstr_size;
@@ -137,6 +138,7 @@ void draw_prompt ();
 char *gets_prompt (prompt_t *ppr);
 prompt_t *init_prompt (const char *prompt);
 void alert (char *fmt, ...);
+void add_history (prompt_t *pr, char *str, size_t len);
 
 // linewrap.c
 void get_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlines, size_t *tlines_len, size_t *tlines_size);
@@ -203,6 +205,8 @@ void get_last_line ();
 void search ();
 void next_match ();
 void prev_match ();
+void load_search_history ();
+void save_search_history ();
 
 #endif
 

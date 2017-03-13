@@ -1,6 +1,8 @@
 #include "les.h"
 #include <ctype.h>
 #include <term.h>
+#include <errno.h>
+#include <string.h>
 
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
@@ -151,10 +153,57 @@ void find_matches () {
     draw_tab();
 }
 
-void search () {
-    if (!spr) {
-        spr = init_prompt("/");
+char *history_file () {
+    char *home = getenv("HOME");
+    if (!home) {
+        return NULL;
     }
+    static char file[256];
+    snprintf(file, sizeof file, "%s/.les_history", home);
+    return file;
+}
+
+void load_search_history () {
+    spr = init_prompt("/");
+    char *file = history_file();
+    if (!file) {
+        return;
+    }
+    FILE *fp = fopen(file, "r");
+    if (!fp) {
+        return;
+    }
+
+    char str[512];
+    while (fgets(str, sizeof str, fp)) {
+        add_history(spr, str, strlen(str));
+        spr->history_new++;
+    }
+
+    fclose(fp);
+}
+
+void save_search_history () {
+    if (spr->history_len == spr->history_new) {
+        return;
+    }
+    char *file = history_file();
+    if (!file) {
+        return;
+    }
+    FILE *fp = fopen(file, "a");
+    if (!fp) {
+        fprintf(stderr, "Couldn't open %s: %s\n", file, strerror(errno));
+        exit(1);
+    }
+    int i;
+    for (i = spr->history_new; i < spr->history_len; i++) {
+        fprintf(fp, "%s\n", spr->history[i]);
+    }
+    fclose(fp);
+}
+
+void search () {
     char *pattern = gets_prompt(spr);
     if (interrupt) {
         draw_tab();

@@ -47,6 +47,10 @@ looking at.
 
 The number of matches is shown in the status bar.
 
+You can recall your previous search entries by pressing up or down
+at the search prompt. Search history is stored in the ~/.les_history
+file.
+
 Man Pages
 =========
 
@@ -152,4 +156,3 @@ tail -f
 reload tab (probably not if stdin)
 recent files list should show a separator for Today, Friday, Thursday, etc back a week
 recent files replace home directory with ~ or even nothing
-search history

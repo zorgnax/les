@@ -32,6 +32,7 @@ void reset () {
 void bye () {
     reset();
     save_recents_file();
+    save_search_history();
 }
 
 void bye2 () {
@@ -130,7 +131,9 @@ char *usage_text () {
         "    l,→           go right one third a screen\n"
         "    L,⇥           go right all the way\n"
         "    m             mark position\n"
-        "    M             restore marked position\n"
+        "    M             go to marked position\n"
+        "    n             go to next match\n"
+        "    N             go to previous match\n"
         "    q             close file\n"
         "    Q             close all files\n"
         "    t             go to next tab\n"
@@ -488,6 +491,7 @@ int main (int argc, char **argv) {
     stage_cat(cursor_invisible);
     stage_write();
 
+    load_search_history();
     init_page();
     init_line1();
     stage_tabs();

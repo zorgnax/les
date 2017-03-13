@@ -50,7 +50,7 @@ char *human_readable (double size) {
 
 void stage_status () {
     status->matches_len = 0;
-    if (active_search) {
+    if (active_search && tabb->search_version == search_version) {
         if (tabb->matches_len == 0) {
             status->matches_len = snprintf(status->matches, status->matches_size, " 0 matches");
         }
