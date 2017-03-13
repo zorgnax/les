@@ -19,6 +19,7 @@ size_t recents_len = 0;
 size_t recents_size = 0;
 int recents_loaded = 0;
 struct tm *now = NULL;
+char *home;
 
 recent_t *add_recent () {
     if (recents_len == recents_size) {
@@ -287,7 +288,17 @@ void add_recents_tab_line (recent_t *r) {
         dur /= (60 * 60);
         len = snprintf(str, sizeof str, "%dh", dur / (60 * 60));
     }
-    len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%-3s line %-5d %s\n", str, r->line, r->name);
+    const char *name = r->name;
+    char *hdir = "";
+    if (home) {
+        size_t home_len = strlen(home);
+        size_t name_len = strlen(name);
+        if (name_len > home_len + 1 && strncmp(name, home, home_len) == 0 && name[home_len] == '/') {
+            name += home_len + 1;
+            hdir = "~/";
+        }
+    }
+    len = snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "%-3s line %-5d %s%s\n", str, r->line, hdir, name);
     tabb->buf_len += len;
 
     tabb->nlines++;
@@ -312,6 +323,7 @@ void add_recents_tab () {
     time_t t = time(NULL);
     now = malloc(sizeof (struct tm));
     localtime_r(&t, now);
+    home = getenv("HOME");
 
     add_tab("[Recent Files]", 0, LOADED|RECENTS);
     current_tab = tabs_len - 1;
