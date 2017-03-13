@@ -18,7 +18,6 @@ recent_t *recents;
 size_t recents_len = 0;
 size_t recents_size = 0;
 int recents_loaded = 0;
-struct tm *now = NULL;
 char *home;
 
 recent_t *add_recent () {
@@ -320,9 +319,16 @@ void add_recents_tab () {
         }
     }
 
-    time_t t = time(NULL);
-    now = malloc(sizeof (struct tm));
-    localtime_r(&t, now);
+    static char str[32];
+    time_t today = time(NULL);
+    struct tm *todaytm = malloc(sizeof (struct tm));
+    localtime_r(&today, todaytm);
+    todaytm->tm_sec = 0;
+    todaytm->tm_min = 0;
+    todaytm->tm_hour = 0;
+    todaytm->tm_isdst = -1;
+    today = mktime(todaytm);
+    struct tm *daytm = malloc(sizeof (struct tm));
     home = getenv("HOME");
 
     add_tab("[Recent Files]", 0, LOADED|RECENTS);
@@ -332,7 +338,7 @@ void add_recents_tab () {
         load_recents_file();
     }
 
-    int today_line = 0;
+    int day_line = 8;
     for (i = 0; i < recents_len; i++) {
         recent_t *r = recents + i;
         if (r->deleted) {
@@ -342,18 +348,44 @@ void add_recents_tab () {
             tabb->buf_size *= 2;
             tabb->buf = realloc(tabb->buf, tabb->buf_size);
         }
-        if (!today_line) {
-            struct tm *opened = localtime(&(r->opened));
-            if (opened->tm_year == now->tm_year && opened->tm_mon == now->tm_mon && opened->tm_mday == now->tm_mday) {
-                today_line = 1;
-                tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "------------------\n");
+        if (day_line) {
+            memcpy(daytm, todaytm, sizeof (struct tm));
+            daytm->tm_mday -= day_line - 1;
+            daytm->tm_isdst = -1;
+            time_t day = mktime(daytm);
+            if (r->opened >= day) {
+                day_line--;
+                while (1) {
+                    daytm->tm_mday++;
+                    daytm->tm_isdst = -1;
+                    day = mktime(daytm);
+                    if (r->opened < day) {
+                        break;
+                    }
+                    day_line--;
+                }
+                memcpy(daytm, todaytm, sizeof (struct tm));
+                daytm->tm_mday -= day_line;
+                daytm->tm_isdst = -1;
+                day = mktime(daytm);
+                strftime(str, sizeof str, "%A", daytm);
+                char *day_nickname = "";
+                if (day_line == 0) {
+                    day_nickname = " (Today)";
+                }
+                else if (day_line == 1) {
+                    day_nickname = " (Yesterday)";
+                }
+
+                tabb->buf_len += snprintf(tabb->buf + tabb->buf_len, tabb->buf_size - tabb->buf_len, "--------- %s%s ---------\n", str, day_nickname);
                 tabb->nlines++;
             }
         }
         add_recents_tab_line(r);
     }
 
-    free(now);
+    free(daytm);
+    free(todaytm);
     init_line1();
     change_tab();
     move_end();

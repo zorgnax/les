@@ -154,5 +154,3 @@ port to linux
 create a man page
 tail -f
 reload tab (probably not if stdin)
-recent files list should show a separator for Today, Friday, Thursday, etc back a week
-recent files replace home directory with ~ or even nothing
