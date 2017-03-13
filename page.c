@@ -382,7 +382,7 @@ void stage_tab2 (int n, tline_t *tlines, size_t tlines_len) {
             }
         }
     }
-    escapes[0] = '\0';
+    escapes_len = 0;
     for (i = 0; i < n; i++) {
         if (i < tlines_len) {
             if (line_wrap) {
