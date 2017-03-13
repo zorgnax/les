@@ -135,6 +135,9 @@ binds that no one will use ever. For example (-a, -A, -b, -B, -c,
 In less, if you start searching and want to cancel, pressing esc
 doesn't work, it just adds more text to your search prompt.
 
+In less if you do a search it will move the screen so the match is
+at the top line, even if the match is already on screen.
+
 Todo
 ====
 
@@ -150,4 +153,3 @@ recent files replace home directory with ~ or even nothing
 search history
 
 matching when the match is off the screen to the right
-matching multiline strings doesn't always cycle correctly. for example. pol.*?samsung in samsung.txt

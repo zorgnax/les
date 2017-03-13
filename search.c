@@ -182,8 +182,8 @@ void next_match () {
     if (!tabb->matches_len) {
         return;
     }
-    if (tabb->matches[tabb->current_match].start >= tlines[0].pos &&
-        tabb->matches[tabb->current_match].end < tlines[tlines_len - 1].end_pos) {
+    size_t start = tabb->matches[tabb->current_match].start;
+    if (start >= tlines[0].pos && start < tlines[tlines_len - 1].end_pos) {
         tabb->current_match = (tabb->current_match + 1) % tabb->matches_len;
     }
     else {
