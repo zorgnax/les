@@ -8,7 +8,7 @@ int get_char_width (unsigned int codepoint) {
         {0x08,    0x08,   -1},
         {0x09,    0x1f,    2},
         {0x7f,    0x7f,    2},
-        {0x80,    0x9f,    0},
+        {0x80,    0x9f,    2},
         {0x300,   0x36f,   0},
         {0x483,   0x489,   0},
         {0x591,   0x5bd,   0},
@@ -403,6 +403,16 @@ void get_char_info (charinfo_t *cinfo, const char *buf, int i) {
         codepoint |= c2 & 0x3f;
     }
     cinfo->codepoint = codepoint;
+    if ((cinfo->len > 1 && codepoint < 0x80) ||
+        (cinfo->len > 2 && codepoint < 0x800) ||
+        (cinfo->len > 3 && codepoint < 0x10000) ||
+        (cinfo->len > 4 && codepoint < 0x200000) ||
+        (cinfo->len > 5 && codepoint < 0x4000000)) {
+        cinfo->error = 1;
+        cinfo->len = 1;
+        cinfo->width = 4;
+        return;
+    }
     if (c == 0x08) {
         get_backspace_len(cinfo, buf, i);
     }

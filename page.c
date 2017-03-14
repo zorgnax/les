@@ -255,13 +255,7 @@ void stage_character (charinfo_t *cinfo, char *buf, int i) {
     int j;
     unsigned char c = buf[i];
     if (cinfo->error) {
-        str[0] = '[';
-        for (j = 0; j < cinfo->len; j++) {
-            unsigned char c2 = buf[i + j];
-            sprintf(str + 1 + j * 2, "%02X", c2);
-        }
-        str[j * 2 + 1] = ']';
-        str[j * 2 + 2] = '\0';
+        sprintf(str, "[%02X]", c);
         stage_cat(str);
     }
     else if (c == '\t') {
@@ -284,6 +278,10 @@ void stage_character (charinfo_t *cinfo, char *buf, int i) {
     }
     else if (c == 0x7f) {
         sprintf(str, "^%c", -0x40 + c);
+        stage_cat(str);
+    }
+    else if (cinfo->codepoint >= 0x80 && cinfo->codepoint <= 0x9f) {
+        sprintf(str, "*%c", 0x40 + cinfo->codepoint - 0x80);
         stage_cat(str);
     }
     else {
