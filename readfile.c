@@ -226,3 +226,20 @@ void set_input_encoding (char *encoding) {
     }
 }
 
+void reload () {
+    if (!(tabb->state & FILEBACKED)) {
+        return;
+    }
+    if (tabb->state & OPENED && !(tabb->state & LOADED) && tabb->fd) {
+        close(tabb->fd);
+    }
+    tabb->state &= ~(OPENED|LOADED|ERROR);
+    tabb->pos = 0;
+    tabb->buf_len = 0;
+    tabb->stragglers_len = 0;
+    tabb->matches_len = 0;
+    tabb->search_version = 0;
+    open_tab_file();
+    draw_tab();
+}
+

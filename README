@@ -153,4 +153,3 @@ J,K go to next/prev paragraph (maybe centering and highlighting it)
 port to linux
 create a man page
 tail -f
-reload tab (probably not if stdin)

@@ -99,6 +99,7 @@ typedef struct {
 #define HELP       16
 #define ERROR      32
 #define POSITIONED 64
+#define FILEBACKED 128
 
 extern int tty;
 extern int line1;
@@ -193,6 +194,7 @@ void set_input_encoding (char *encoding);
 void open_tab_file ();
 int count_lines (char *buf, size_t len);
 int count_lines_atob (char *buf, size_t a, size_t b);
+void reload ();
 
 // recentfiles.c
 void add_recent_tab (tab_t *tabb);

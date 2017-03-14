@@ -206,7 +206,9 @@ void parse_recent_files_line (char *str) {
 
 // Returns the most recent line from the last time you opened this file
 void get_last_line () {
-    tabb->realpath = realpath(tabb->name, NULL);
+    if (!tabb->realpath) {
+        tabb->realpath = realpath(tabb->name, NULL);
+    }
     if (!tabb->realpath) {
         return;
     }

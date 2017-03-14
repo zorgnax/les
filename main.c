@@ -258,9 +258,12 @@ int read_key (char *buf, int len) {
         case 'Q':
             exit(0);
             break;
-        case 'R':
+        case 'r':
             stage_tabs();
             draw_tab();
+            break;
+        case 'R':
+            reload();
             break;
         case 't':
             next_tab();
@@ -433,7 +436,7 @@ void parse_args (int argc, char **argv) {
 
     int i;
     for (i = optind; i < argc; i++) {
-        add_tab(argv[i], 0, READY);
+        add_tab(argv[i], 0, READY|FILEBACKED);
     }
     if (!tabs_len) {
         fprintf(stderr, "No files\n");

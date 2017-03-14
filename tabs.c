@@ -175,7 +175,7 @@ void close_tab () {
     free(tabb2->name2);
     free(tabb2->buf);
     free(tabb2->stragglers);
-    if (tabb2->state & OPENED && !(tabb->state & LOADED) && tabb2->fd) {
+    if (tabb2->state & OPENED && !(tabb2->state & LOADED) && tabb2->fd) {
         close(tabb2->fd);
     }
     free(tabb2);
