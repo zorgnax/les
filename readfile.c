@@ -133,9 +133,6 @@ void read_file () {
     }
     if (nread == 0) {
         tabb->state |= LOADED;
-        if (tabb->fd) {
-            close(tabb->fd);
-        }
         if (tabb->buf_len && tabb->buf[tabb->buf_len - 1] != '\n') {
             tabb->nlines++;
         }
@@ -145,8 +142,11 @@ void read_file () {
     nread += tabb->stragglers_len;
     tabb->stragglers_len = 0;
     read_file2(readbuf, nread);
-    if (tlines_len == lines - line1 - 1) {
-         draw_status();
+    if (tabb->state & LOADED && tabb->state & LOADFOREVER) {
+        move_end();
+    }
+    else if (tlines_len == lines - line1 - 1) {
+        draw_status();
     }
     else {
         draw_tab();
@@ -234,7 +234,7 @@ void reload () {
         close(tabb->fd);
     }
     tabb->state &= ~(OPENED|LOADED|ERROR);
-    tabb->pos = 0;
+    tabb->nlines = 0;
     tabb->buf_len = 0;
     tabb->stragglers_len = 0;
     tabb->matches_len = 0;

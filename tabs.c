@@ -28,9 +28,9 @@ void add_tab (const char *name, int fd, int state) {
     tabb->line = 1;
     tabb->nlines = 0;
     tabb->column = 0;
-    tabb->mesg = NULL;
+    tabb->mesg_size = 16;
     tabb->mesg_len = 0;
-    tabb->mesg_size = 0;
+    tabb->mesg = malloc(tabb->mesg_size);
     tabb->mark = 0;
     tabb->opened = time(NULL);
     tabb->realpath = NULL;
@@ -175,7 +175,8 @@ void close_tab () {
     free(tabb2->name2);
     free(tabb2->buf);
     free(tabb2->stragglers);
-    if (tabb2->state & OPENED && !(tabb2->state & LOADED) && tabb2->fd) {
+    free(tabb->mesg);
+    if (tabb2->state & OPENED && tabb2->fd) {
         close(tabb2->fd);
     }
     free(tabb2);

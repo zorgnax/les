@@ -91,15 +91,17 @@ typedef struct {
      (c & 0xfe) == 0xfc ? 6 : \
                           6)
 
-#define READY      0
-#define OPENED     1
-#define LOADED     2
-#define MARKED     4
-#define RECENTS    8
-#define HELP       16
-#define ERROR      32
-#define POSITIONED 64
-#define FILEBACKED 128
+#define READY       0
+#define OPENED      1
+#define LOADED      2
+#define MARKED      4
+#define RECENTS     8
+#define HELP        16
+#define ERROR       32
+#define POSITIONED  64
+#define FILEBACKED  128
+#define LOADFOREVER 256
+#define SPECIAL     512
 
 extern int tty;
 extern int line1;

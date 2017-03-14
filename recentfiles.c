@@ -333,7 +333,7 @@ void add_recents_tab () {
     struct tm *daytm = malloc(sizeof (struct tm));
     home = getenv("HOME");
 
-    add_tab("[Recent Files]", 0, LOADED|RECENTS);
+    add_tab("[Recent Files]", 0, LOADED|RECENTS|SPECIAL);
     current_tab = tabs_len - 1;
     tabb = tabs[current_tab];
     if (!recents_loaded) {

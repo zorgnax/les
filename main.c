@@ -19,6 +19,7 @@ struct termios tcattr1, tcattr2;
 int line1;
 int tab_width = 4;
 int interrupt = 0;
+int load_forever = 0;
 
 void reset () {
     tcsetattr(tty, TCSANOW, &tcattr1);
@@ -110,10 +111,11 @@ void restore_mark () {
 
 char *usage_text () {
     static char *str =
-        "Usage: les [-hw] [-e=encoding] [-p=script] [-t=width] file...\n"
+        "Usage: les [-fhw] [-e=encoding] [-p=script] [-t=width] file...\n"
         "\n"
         "Options:\n"
         "    -e=encoding   input file encoding\n"
+        "    -f            load forever\n"
         "    -h            help\n"
         "    -p=script     lespipe script\n"
         "    -t=width      tab width (default 4)\n"
@@ -122,6 +124,7 @@ char *usage_text () {
         "Key Binds:\n"
         "    d             go down half a screen\n"
         "    D,⇟           go down a screen\n"
+        "    F             load forever\n"
         "    g             go to the top of the file\n"
         "    G             go to the bottom of the file\n"
         "    h,←           go left one third a screen\n"
@@ -168,7 +171,7 @@ void add_help_tab () {
         }
     }
 
-    add_tab("[Help]", 0, LOADED|HELP);
+    add_tab("[Help]", 0, LOADED|HELP|SPECIAL);
     current_tab = tabs_len - 1;
     tabb = tabs[current_tab];
 
@@ -198,6 +201,20 @@ void toggle_line_wrap () {
     draw_tab();
 }
 
+void toggle_load_forever (tab_t *tabb) {
+    if (tabb->state & SPECIAL) {
+        return;
+    }
+    if (tabb->state & LOADFOREVER) {
+        tabb->state &= ~LOADFOREVER;
+        tabb->mesg_len = 0;
+    }
+    else {
+        tabb->state |= LOADFOREVER;
+        tabb->mesg_len = sprintf(tabb->mesg, " ...");
+    }
+}
+
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf, 0);
@@ -209,6 +226,10 @@ int read_key (char *buf, int len) {
             break;
         case 'D':
             move_forward(lines - line1 - 2);
+            break;
+        case 'F':
+            toggle_load_forever(tabb);
+            draw_status();
             break;
         case 'g':
             move_start();
@@ -376,7 +397,7 @@ void read_loop () {
     for (i = 0;; i++) {
         FD_ZERO(&fds);
         FD_SET(tty, &fds);
-        if ((tabb->state & (OPENED|LOADED)) == OPENED) {
+        if (tabb->state & OPENED && (!(tabb->state & LOADED) || tabb->state & LOADFOREVER)) {
             FD_SET(tabb->fd, &fds);
             nfds = tty > tabb->fd ? (tty + 1) : (tabb->fd + 1);
         }
@@ -403,6 +424,7 @@ void read_loop () {
 void parse_args (int argc, char **argv) {
     struct option longopts[] = {
         {"e", required_argument, NULL, 'e'},
+        {"f", no_argument, NULL, 'f'},
         {"h", no_argument, NULL, 'h'},
         {"p", required_argument, NULL, 'p'},
         {"t", required_argument, NULL, 't'},
@@ -415,6 +437,9 @@ void parse_args (int argc, char **argv) {
         switch (c) {
         case 'e':
             set_input_encoding(optarg);
+            break;
+        case 'f':
+            load_forever = 1;
             break;
         case 'h':
             usage();
@@ -429,7 +454,6 @@ void parse_args (int argc, char **argv) {
             line_wrap = 0;
             break;
         default:
-            usage();
             exit(1);
         }
     }
@@ -437,6 +461,9 @@ void parse_args (int argc, char **argv) {
     int i;
     for (i = optind; i < argc; i++) {
         add_tab(argv[i], 0, READY|FILEBACKED);
+        if (load_forever) {
+            toggle_load_forever(tabs[tabs_len - 1]);
+        }
     }
     if (!tabs_len) {
         fprintf(stderr, "No files\n");
@@ -465,7 +492,7 @@ int main (int argc, char **argv) {
     }
 
     if (!isatty(0)) {
-        add_tab("stdin", 0, OPENED);
+        add_tab("stdin", 0, OPENED|SPECIAL);
     }
 
     parse_args(argc, argv);

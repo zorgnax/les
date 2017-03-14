@@ -115,6 +115,15 @@ Resuming At Your Last Position
 When you reopen a file that you viewed before, you will be positioned
 at the line you last left off.
 
+Loading Forever
+===============
+
+If you are reading a file that grows such as a log file, you can
+instruct the program to load forever with the -f option or the F
+key bind. When additional data is read, your screen will move to
+the end. When in load forever mode, the status bar will show "..."
+in it. This is similar to the "tail -f" command.
+
 Improvements Over less
 ======================
 
@@ -152,4 +161,3 @@ next/prev if/for/while
 J,K go to next/prev paragraph (maybe centering and highlighting it)
 port to linux
 create a man page
-tail -f
