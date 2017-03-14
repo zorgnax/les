@@ -1,7 +1,8 @@
 les
 ===
 
-This is a pager program similar to less and more.
+This is a pager program similar to less and more, with several
+improved features.
 
 Status Bar
 ==========
