@@ -198,6 +198,35 @@ int open_with_lespipe () {
     return 1;
 }
 
+void set_man_page_name () {
+    int nread = read(tabb->fd, readbuf, sizeof readbuf);
+    if (nread <= 0) {
+        return;
+    }
+    if (nread < 3) {
+        nread += read(tabb->fd, readbuf + nread, sizeof readbuf - nread);
+    }
+    int i;
+    for (i = 0; i < nread; i++) {
+        if (readbuf[i] != '\n' && readbuf[i] != ' ' && readbuf[i] != '\t') {
+            break;
+        }
+    }
+    int start = i;
+    for (; i < nread; i++) {
+        if (readbuf[i] == '\n' || readbuf[i] == ' ' || readbuf[i] == '\t') {
+            break;
+        }
+    }
+    if (i > start) {
+        free(tabb->name2);
+        tabb->name2 = strndup(readbuf + start, i - start);
+        tabb->name = strdup(tabb->name2);
+        tabb->name_width = strwidth(tabb->name);
+    }
+    read_file2(readbuf, nread);
+}
+
 void open_tab_file () {
     if (tabb->state & (OPENED|LOADED)) {
         return;

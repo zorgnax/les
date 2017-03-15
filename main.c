@@ -20,6 +20,7 @@ int line1;
 int tab_width = 4;
 int interrupt = 0;
 int load_forever = 0;
+int man_page = 0;
 
 void reset () {
     tcsetattr(tty, TCSANOW, &tcattr1);
@@ -117,6 +118,7 @@ char *usage_text () {
         "    -e=encoding   input file encoding\n"
         "    -f            load forever\n"
         "    -h            help\n"
+        "    -m            input is a man page\n"
         "    -p=script     lespipe script\n"
         "    -t=width      tab width (default 4)\n"
         "    -w            disable line wrap\n"
@@ -426,6 +428,7 @@ void parse_args (int argc, char **argv) {
         {"e", required_argument, NULL, 'e'},
         {"f", no_argument, NULL, 'f'},
         {"h", no_argument, NULL, 'h'},
+        {"m", no_argument, NULL, 'm'},
         {"p", required_argument, NULL, 'p'},
         {"t", required_argument, NULL, 't'},
         {"w", no_argument, NULL, 'w'},
@@ -444,6 +447,9 @@ void parse_args (int argc, char **argv) {
         case 'h':
             usage();
             exit(0);
+        case 'm':
+            man_page = 1;
+            break;
         case 'p':
             lespipe = optarg;
             break;
@@ -498,6 +504,9 @@ int main (int argc, char **argv) {
     parse_args(argc, argv);
     tabb = tabs[0];
     open_tab_file();
+    if (man_page) {
+        set_man_page_name();
+    }
     if (tabb->state & ERROR) {
         write(1, tabb->buf, tabb->buf_len);
         exit(1);

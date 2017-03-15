@@ -116,6 +116,7 @@ extern tab_t *tabb;
 extern char *lespipe;
 extern int active_search;
 extern int search_version;
+extern int man_page;
 
 extern tline_t *tlines;
 extern size_t tlines_len;
@@ -197,6 +198,7 @@ void open_tab_file ();
 int count_lines (char *buf, size_t len);
 int count_lines_atob (char *buf, size_t a, size_t b);
 void reload ();
+void set_man_page_name ();
 
 // recentfiles.c
 void add_recent_tab (tab_t *tabb);
