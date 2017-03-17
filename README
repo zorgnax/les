@@ -163,10 +163,9 @@ at the top line, even if the match is already on screen.
 Todo
 ====
 
-next/prev function (C like or Perl like), highlight it too someway
-next/prev if/for/while
-J,K go to next/prev paragraph (maybe centering and highlighting it)
 port to linux
 create a man page
 add animated gif of using it to the readme
+remove mark and restore mark binds
+remove last key hit in status bar
 

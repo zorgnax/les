@@ -176,8 +176,15 @@ void load_search_history () {
 
     char str[512];
     while (fgets(str, sizeof str, fp)) {
-        add_history(spr, str, strlen(str));
-        spr->history_new++;
+        int len = strlen(str);
+        if (str[len - 1] == '\n') {
+            str[len - 1] = '\0';
+            len--;
+        }
+        if (len) {
+            add_history(spr, str, len);
+            spr->history_new++;
+        }
     }
 
     fclose(fp);

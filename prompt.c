@@ -414,7 +414,7 @@ void gets1_prompt () {
 void add_history (prompt_t *pr, char *str, size_t len) {
     // Don't add duplicates
     if (pr->history_len) {
-        if (strncmp(pr->history[pr->history_len - 1], str, len) == 0) {
+        if (strcmp(pr->history[pr->history_len - 1], str) == 0) {
             return;
         }
     }
