@@ -199,11 +199,13 @@ void highlight_match3 () {
     if (escapes_len) {
         stage_cat(exit_attribute_mode);
     }
+    stage_cat(tparm(set_a_foreground, 0));
+    stage_cat(enter_bold_mode);
     if (atmatch == tabb->current_match) {
-        stage_cat(tparm(set_a_background, 16 + 36*0 + 6*2 + 0));
+        stage_cat(tparm(set_a_background, 10));
     }
     else {
-        stage_cat(tparm(set_a_background, 16 + 36*0 + 6*0 + 2));
+        stage_cat(tparm(set_a_background, 12));
     }
 }
 
