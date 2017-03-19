@@ -210,13 +210,7 @@ void save_search_history () {
     fclose(fp);
 }
 
-void search () {
-    char *pattern = gets_prompt(spr);
-    if (interrupt) {
-        draw_tab();
-        return;
-    }
-
+void search2 (char *pattern) {
     if (re) {
         pcre2_code_free(re);
     }
@@ -252,7 +246,20 @@ void search () {
     find_matches();
 }
 
+void search () {
+    char *pattern = gets_prompt(spr);
+    if (interrupt) {
+        draw_tab();
+        return;
+    }
+    search2(pattern);
+}
+
 void next_match () {
+    if (search_version == 0 && spr->history_len) {
+        search2(spr->history[spr->history_len - 1]);
+        return;
+    }
     if (tabb->search_version != search_version) {
         find_matches();
         return;
@@ -272,6 +279,10 @@ void next_match () {
 }
 
 void prev_match () {
+    if (search_version == 0 && spr->history_len) {
+        search2(spr->history[spr->history_len - 1]);
+        return;
+    }
     if (tabb->search_version != search_version) {
         find_matches();
         return;
