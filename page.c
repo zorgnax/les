@@ -64,8 +64,8 @@ void stage_status () {
     char *hrsize = human_readable(tabb->buf_len);
     status->right_len = snprintf(
         status->right, status->right_size,
-        "%.*s%.*s %d/%d %s",
-	(int) status->tty_len, status->tty, (int) status->matches_len, status->matches,
+        "%.*s %d/%d %s",
+	(int) status->matches_len, status->matches,
         tabb->line, tabb->nlines, hrsize);
     status->right_width = strnwidth(status->right, status->right_len);
 
