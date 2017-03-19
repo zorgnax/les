@@ -19,7 +19,7 @@ void add_tab (const char *name, int fd, int state) {
     tabb->name2 = strdup(name);
     tabb->fd = fd;
     tabb->pos = 0;
-    tabb->state |= state;
+    tabb->state = state;
     tabb->buf_size = 8192;
     tabb->buf = malloc(tabb->buf_size);
     tabb->buf_len = 0;

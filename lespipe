@@ -2,7 +2,11 @@
 
 if [ -d "$1" ]; then
     echo directory
-    CLICOLOR_FORCE=1 ls -G -l -h "$1"
+    if [ $(uname) = "Darwin" ]; then
+        CLICOLOR_FORCE=1 ls -G -l -h "$1"
+    else
+        ls -lh --color "$1"
+    fi
     exit
 fi
 

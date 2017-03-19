@@ -69,6 +69,10 @@ Man Pages
 You can set your man page output to be piped through les by adding
 the following to your .bashrc:
 
+    alias man="man -P \"bash -c \\\"ul | les -m\\\"\""
+
+In older versions of man, you can get away with this:
+
     alias man="man -P \"ul | les -m\""
 
 Even though les is capable of displaying backspace escapes for bold
@@ -199,8 +203,3 @@ doesn't work, it just adds more text to your search prompt.
 
 In less if you do a search it will move the screen so the match is
 at the top line, even if the match is already on screen.
-
-Todo
-====
-
-port to linux

@@ -58,7 +58,7 @@ void stage_status () {
             status->matches_len = snprintf(status->matches, status->matches_size, " 1 match");
         }
         else {
-            status->matches_len = snprintf(status->matches, status->matches_size, " %lu/%lu matches", tabb->current_match + 1, tabb->matches_len);
+            status->matches_len = snprintf(status->matches, status->matches_size, " %lu/%lu matches", (long unsigned int) tabb->current_match + 1, (long unsigned int) tabb->matches_len);
         }
     }
     char *hrsize = human_readable(tabb->buf_len);

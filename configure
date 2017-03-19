@@ -59,4 +59,7 @@ echo "#define PREFIX \"$prefix\"" > defines.h
 
 echo "Writing defines.mk"
 echo "PREFIX = $prefix" > defines.mk
+if [ $(uname) = "Darwin" ]; then
+    echo "LDLIBS += -liconv" >> defines.mk
+fi
 

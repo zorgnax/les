@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS =
-LDLIBS = -lncurses -liconv -lpcre2-8
+LDLIBS = -lncurses -lpcre2-8
 include defines.mk
 
 all: les
