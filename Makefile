@@ -31,6 +31,8 @@ install: les
 	mkdir -p $(PREFIX)/share/les
 	install -c lespipe $(PREFIX)/share/les
 	install -c les $(PREFIX)/bin
+	mkdir -p $(PREFIX)/share/man/man1
+	install -c les.1 $(PREFIX)/share/man/man1
 
 uninstall:
 	rm -rf $(PREFIX)/share/les

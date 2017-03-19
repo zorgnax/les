@@ -112,7 +112,7 @@ void restore_mark () {
 
 char *usage_text () {
     static char *str =
-        "Usage: les [-fhw] [-e=encoding] [-p=script] [-t=width] file...\n"
+        "Usage: les [-fhmw] [-e=encoding] [-p=script] [-t=width] file...\n"
         "\n"
         "Options:\n"
         "    -e=encoding   input file encoding\n"
