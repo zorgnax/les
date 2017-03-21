@@ -1,4 +1,3 @@
-.\" les is copyrighted by Jacob Gelbman <gelbman@gmail.com>
 .TH LES 1 "2017-03-18"
 .SH NAME
 les - A pager program similar to less and more
@@ -77,15 +76,12 @@ the following to your .bashrc:
 .PP
 .RS
 .nf
-alias man="man -P \\"bash -c \\\\\\"ul | les -m\\\\\\"\\""
+alias man="man -P \\"les -m\\""
 .fi
 .RE
 .PP
-Even though les is capable of displaying backspace escapes for bold
-and underline, it is piped through ul since search will still be
-affected by the backspaces in the buffer. For example "- \\b - g \\b
-g" will not match against "-g". The -m option puts the name of the
-man page into the status line.
+The -m option puts the name of the man page into the status line
+and recognizes backspace escapes specially.
 .SH GIT DIFF
 .PP
 You can set les to be your git diff viewer by adding the following

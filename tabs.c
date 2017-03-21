@@ -39,6 +39,10 @@ void add_tab (const char *name, int fd, int state) {
     tabb->matches_len = 0;
     tabb->matches_size = 0;
     tabb->current_match = 0;
+    tabb->highlights = NULL;
+    tabb->highlights_len = 0;
+    tabb->highlights_size = 0;
+    tabb->highlights_processed = 0;
     if (tabs_size == 0) {
         tabs_size = 4;
         tabs = malloc(tabs_size * sizeof (tab_t *));
@@ -176,6 +180,8 @@ void close_tab () {
     free(tabb2->buf);
     free(tabb2->stragglers);
     free(tabb2->mesg);
+    free(tabb2->matches);
+    free(tabb2->highlights);
     if (tabb2->state & OPENED && tabb2->fd) {
         close(tabb2->fd);
     }

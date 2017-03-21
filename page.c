@@ -25,6 +25,7 @@ typedef struct {
 
 status_t *status = NULL;
 int atmatch = 0;
+int athighlight = 0;
 char *escapes = NULL;
 size_t escapes_len = 0;
 size_t escapes_size = 0;
@@ -252,6 +253,47 @@ void highlight_match2 (char *buf, int i) {
     }
 }
 
+void highlight2 () {
+    if (tabb->highlights[athighlight].type == UNDERLINED) {
+        stage_cat(enter_underline_mode);
+    }
+    else {
+        stage_cat(enter_bold_mode);
+    }
+}
+
+void highlight_start (char *buf, int i) {
+    if (!tabb->highlights_len || athighlight >= tabb->highlights_len) {
+        return;
+    }
+    if (i > tabb->highlights[athighlight].start && i < tabb->highlights[athighlight].end) {
+        highlight2();
+    }
+}
+
+void highlight_end (char *buf, int i) {
+    if (!tabb->highlights_len || athighlight >= tabb->highlights_len) {
+        return;
+    }
+    if (i > tabb->highlights[athighlight].start && i <= tabb->highlights[athighlight].end) {
+        stage_cat(exit_attribute_mode);
+    }
+}
+
+void highlight (char *buf, int i) {
+    if (!tabb->highlights_len) {
+        return;
+    }
+    if (athighlight < tabb->highlights_len && i == tabb->highlights[athighlight].end) {
+        stage_cat(exit_attribute_mode);
+        escapes_start();
+        athighlight++;
+    }
+    if (athighlight < tabb->highlights_len && i == tabb->highlights[athighlight].start) {
+        highlight2();
+    }
+}
+
 void stage_character (charinfo_t *cinfo, char *buf, int i) {
     static char str[16];
     int j;
@@ -296,9 +338,11 @@ void stage_line_wrap (tline_t *tline) {
     int width = 0;
     int i = tline->pos;
     escapes_start();
+    highlight_start(tabb->buf, i);
     highlight_match_start(tabb->buf, i);
     while (i < tline->end_pos) {
         get_char_info(&cinfo, tabb->buf, i);
+        highlight(tabb->buf, i);
         highlight_match(tabb->buf, i);
         if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
             highlight_match2(tabb->buf, i);
@@ -310,6 +354,7 @@ void stage_line_wrap (tline_t *tline) {
         width += cinfo.width;
         i += cinfo.len;
     }
+    highlight_end(tabb->buf, i);
     highlight_match_end(tabb->buf, i);
     escapes_end();
     if (width < columns) {
@@ -325,6 +370,10 @@ void stage_line_nowrap (tline_t *tline) {
     if (atmatch < tabb->matches_len && tabb->matches[atmatch].end < i) {
         atmatch++;
     }
+    if (athighlight < tabb->highlights_len && tabb->highlights[athighlight].end < i) {
+        athighlight++;
+    }
+    highlight_start(tabb->buf, i);
     highlight_match_start(tabb->buf, i);
     while (i < tline->end_pos) {
         get_char_info(&cinfo, tabb->buf, i);
@@ -335,12 +384,14 @@ void stage_line_nowrap (tline_t *tline) {
             escapes_record(&cinfo, tabb->buf, i);
             stage_ncat(tabb->buf + i, cinfo.len);
         }
+        highlight(tabb->buf, i);
         highlight_match(tabb->buf, i);
         highlight_match2(tabb->buf, i);
         width += cinfo.width;
         i += cinfo.len;
     }
     if (i == tline->end_pos) {
+        highlight_end(tabb->buf, i);
         highlight_match_end(tabb->buf, i);
         escapes_end();
         stage_cat(clr_eol);
@@ -354,6 +405,7 @@ void stage_line_nowrap (tline_t *tline) {
         if (tabb->buf[i] == 0x1b && cinfo.len > 1) {
             escapes_record(&cinfo, tabb->buf, i);
         }
+        highlight(tabb->buf, i);
         highlight_match(tabb->buf, i);
         if ((tabb->buf[i] == '\r' && tabb->buf[i + 1] == '\n') || tabb->buf[i] == '\n') {
             highlight_match2(tabb->buf, i);
@@ -364,6 +416,7 @@ void stage_line_nowrap (tline_t *tline) {
         width += cinfo.width;
         i += cinfo.len;
     }
+    highlight_end(tabb->buf, i);
     highlight_match_end(tabb->buf, i);
     escapes_end();
     if (width < columns + tabb->column) {
@@ -378,6 +431,15 @@ void stage_tab2 (int n, tline_t *tlines, size_t tlines_len) {
         for (i = 0; i < tabb->matches_len; i++) {
             if (tabb->matches[i].end >= tlines[0].pos) {
                 atmatch = i;
+                break;
+            }
+        }
+    }
+    if (tabb->highlights_len) {
+        athighlight = 0;
+        for (i = 0; i < tabb->highlights_len; i++) {
+            if (tabb->highlights[i].end >= tlines[0].pos) {
+                athighlight = i;
                 break;
             }
         }

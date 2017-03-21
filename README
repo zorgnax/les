@@ -69,17 +69,10 @@ Man Pages
 You can set your man page output to be piped through les by adding
 the following to your .bashrc:
 
-    alias man="man -P \"bash -c \\\"ul | les -m\\\"\""
+    alias man="man -P \"les -m\""
 
-In older versions of man, you can get away with this:
-
-    alias man="man -P \"ul | les -m\""
-
-Even though les is capable of displaying backspace escapes for bold
-and underline, it is piped through ul since search will still be
-affected by the backspaces in the buffer. For example "- \b - g \b
-g" will not match against "-g". The -m option puts the name of the
-man page into the status line.
+The -m option puts the name of the man page into the status line
+and recognizes backspace escapes specially.
 
 Git Diff
 ========

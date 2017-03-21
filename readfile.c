@@ -34,6 +34,83 @@ int count_lines_atob (char *buf, size_t a, size_t b) {
     return nlines;
 }
 
+void process_backspace_highlights () {
+    if (!man_page) {
+        return;
+    }
+    int i = tabb->highlights_processed;
+    int p1 = i;
+    if (p1 >= tabb->buf_len) {
+        return;
+    }
+    int p2 = p1 + UTF8_LENGTH(tabb->buf[p1]);
+    if (p2 >= tabb->buf_len) {
+        return;
+    }
+    int p3 = p2 + UTF8_LENGTH(tabb->buf[p2]);
+    while (p3 < tabb->buf_len) {
+        int p4 = p3 + UTF8_LENGTH(tabb->buf[p3]);
+        if (tabb->buf[p2] == '\b') {
+            int type = 0;
+            if (tabb->buf[p1] == '_') {
+                type = UNDERLINED;
+            }
+            if ((p2 - p1 == p4 - p3) && strncmp(tabb->buf + p1, tabb->buf + p3, p2 - p1) == 0) {
+                type = BOLD;
+            }
+            if (type) {
+                highlight_t *h = NULL;
+                if (tabb->highlights_len) {
+                    highlight_t *h2 = tabb->highlights + tabb->highlights_len - 1;
+                    if (h2->end == i && h2->type == type) {
+                        h = h2;
+                    }
+                }
+                if (!h) {
+                    if (tabb->highlights_len == tabb->highlights_size) {
+                        if (tabb->highlights_size == 0) {
+                            tabb->highlights_size = 32;
+                            tabb->highlights = malloc(tabb->highlights_size * sizeof (highlight_t));
+                        }
+                        else {
+                            tabb->highlights_size *= 2;
+                            tabb->highlights = realloc(tabb->highlights, tabb->highlights_size * sizeof (highlight_t));
+                        }
+                    }
+                    tabb->highlights_len++;
+                    h = tabb->highlights + tabb->highlights_len - 1;
+                    h->start = i;
+                    h->type = type;
+                }
+                h->end = i + p4 - p3;
+            }
+            memmove(tabb->buf + i, tabb->buf + p3, p4 - p3);
+            i += p4 - p3;
+            p1 = p4;
+            if (p1 >= tabb->buf_len) {
+                break;
+            }
+            p2 = p1 + UTF8_LENGTH(tabb->buf[p1]);
+            if (p2 >= tabb->buf_len) {
+                break;
+            }
+            p3 = p2 + UTF8_LENGTH(tabb->buf[p2]);
+            continue;
+        }
+        memmove(tabb->buf + i, tabb->buf + p1, p2 - p1);
+        i += p2 - p1;
+        p1 = p2;
+        p2 = p3;
+        p3 = p4;
+    }
+    tabb->highlights_processed = i;
+    int j;
+    for (j = p1; j < tabb->buf_len; j++, i++) {
+        tabb->buf[i] = tabb->buf[j];
+    }
+    tabb->buf_len = i;
+}
+
 void add_encoded_input (char *buf, size_t buf_len) {
     char *buf_ptr = buf;
     size_t buf_left = buf_len;
@@ -71,6 +148,7 @@ void add_encoded_input (char *buf, size_t buf_len) {
         break;
     }
     tabb->nlines += count_lines(tabb->buf + tabb_buf_len_orig, tabb->buf_len - tabb_buf_len_orig);
+    process_backspace_highlights();
 }
 
 // makes sure buffer only contains whole UTF-8 characters, if any
@@ -95,6 +173,7 @@ void add_unencoded_input (char *buf, size_t buf_len) {
         i += len;
     }
     tabb->nlines += count_lines(tabb->buf + tabb->buf_len - i, i);
+    process_backspace_highlights();
 }
 
 void read_file2 (char *readbuf, int nread) {

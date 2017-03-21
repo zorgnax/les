@@ -29,6 +29,15 @@ typedef struct {
     size_t end;
 } match_t;
 
+#define UNDERLINED 1
+#define BOLD 2
+
+typedef struct {
+    size_t start;
+    size_t end;
+    int type;
+} highlight_t;
+
 typedef struct {
     const char *name;
     int name_width;
@@ -56,6 +65,10 @@ typedef struct {
     size_t matches_len;
     size_t matches_size;
     size_t current_match;
+    highlight_t *highlights;
+    size_t highlights_len;
+    size_t highlights_size;
+    size_t highlights_processed;
 } tab_t;
 
 typedef struct {
