@@ -302,6 +302,9 @@ int read_key (char *buf, int len) {
         case 'w':
             toggle_line_wrap();
             break;
+        case ' ':
+            move_forward(lines - line1 - 2);
+            break;
         case '%':
             printf("%.2f%% \n", (double) tabb->pos / tabb->buf_len * 100);
             break;
