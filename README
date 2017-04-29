@@ -148,11 +148,11 @@ Key Binds
     g             go to the top of the file
     G             go to the bottom of the file
     h,←           go left one third a screen
-    H,⇤           go left all the way
+    H,⇱           go left all the way
     j,↓           go down one line
     k,↑           go up one line
     l,→           go right one third a screen
-    L,⇥           go right all the way
+    L,⇲           go right all the way
     m             mark position
     M             go to marked position
     n             go to next match

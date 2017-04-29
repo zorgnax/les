@@ -65,7 +65,8 @@ void stage_status () {
     char *hrsize = human_readable(tabb->buf_len);
     status->right_len = snprintf(
         status->right, status->right_size,
-        "%.*s %d/%d %s",
+        "%.*s%.*s %d/%d %s",
+        (int) status->tty_len, status->tty,
 	(int) status->matches_len, status->matches,
         tabb->line, tabb->nlines, hrsize);
     status->right_width = strnwidth(status->right, status->right_len);
@@ -153,7 +154,7 @@ void stage_backspace (charinfo_t *cinfo, char *buf, int i) {
         cinfo->width = 0;
         cinfo->len += 1;
     }
-    else if (buf[i - 1] == buf[i + 1]) {
+    else if (buf[i - 1] == buf[i + 1] || buf[i - 1] == '+') {
         get_char_info(cinfo, buf, i + 1);
         stage_cat("\b");
         stage_cat(enter_bold_mode);

@@ -55,7 +55,10 @@ void process_backspace_highlights () {
             if (tabb->buf[p1] == '_') {
                 type = UNDERLINED;
             }
-            if ((p2 - p1 == p4 - p3) && strncmp(tabb->buf + p1, tabb->buf + p3, p2 - p1) == 0) {
+            else if  (tabb->buf[p1] == '+') {
+                type = BOLD;
+            }
+            else if ((p2 - p1 == p4 - p3) && strncmp(tabb->buf + p1, tabb->buf + p3, p2 - p1) == 0) {
                 type = BOLD;
             }
             if (type) {

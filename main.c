@@ -220,6 +220,7 @@ void toggle_load_forever (tab_t *tabb) {
 int read_key (char *buf, int len) {
     charinfo_t cinfo;
     get_char_info(&cinfo, buf, 0);
+    // set_ttybuf(&cinfo, buf, len);
     int extended = 0;
     switch (buf[0]) {
         case 'd':
@@ -368,6 +369,9 @@ int read_key (char *buf, int len) {
     }
     else if (strncmp(buf, "\eOQ", 3) == 0) { // F2
         add_recents_tab();
+    }
+    else {
+        draw_status();
     }
     return len;
 }

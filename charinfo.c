@@ -344,6 +344,7 @@ void get_backspace_len (charinfo_t *cinfo, const char *buf, int i) {
         cinfo->len = 1;
     }
     else if (buf[i - 1] == '_' ||
+             buf[i - 1] == '+' ||
              buf[i - 1] == buf[i + 1]) {
         cinfo->width = -1;
         cinfo->len = 1;
