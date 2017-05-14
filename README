@@ -145,8 +145,8 @@ Key Binds
     d             go down half a screen
     D,⇟           go down a screen
     F             load forever
-    g             go to the top of the file
-    G             go to the bottom of the file
+    g             go to the top
+    G             go to the bottom
     h,←           go left one third a screen
     H,⇱           go left all the way
     j,↓           go down one line
@@ -180,7 +180,7 @@ les will wrap a line at word boundaries.
 In less, you sometimes have to press j multiple times to go down
 one wrapped line.
 
-In less, if the line is wrapped and you move right, word wrap is
+In less, if the line is wrapped and you move right, line wrap is
 turned off and you move right, which shuffles the screen and looks
 confusing.
 

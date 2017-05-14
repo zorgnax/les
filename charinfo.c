@@ -330,12 +330,12 @@ void get_escape_len (charinfo_t *cinfo, const char *buf, int i) {
         }
         else {
             cinfo->len = 1;
-            cinfo->width = 4;
+            cinfo->width = 2;
             return;
         }
     }
     cinfo->len = 1;
-    cinfo->width = 4;
+    cinfo->width = 2;
 }
 
 void get_backspace_len (charinfo_t *cinfo, const char *buf, int i) {
