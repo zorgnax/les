@@ -32,5 +32,10 @@ case $(echo "$1" | tr '[:upper:]' '[:lower:]') in
         unzip -l "$1"
         ;;
 
+    *.a)
+        echo ar
+        ar -t -v "$1"
+        ;;
+
 esac
 
