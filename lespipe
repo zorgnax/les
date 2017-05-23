@@ -34,7 +34,8 @@ case $(echo "$1" | tr '[:upper:]' '[:lower:]') in
 
     *.a)
         echo ar
-        ar -t -v "$1"
+        cd $(dirname "$1")
+        nm -j -U "$(basename "$1")"
         ;;
 
 esac
