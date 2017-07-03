@@ -4,6 +4,11 @@ les
 This is a pager program similar to less and more, with several
 improved features.
 
+Screenshot
+==========
+
+![Screenshot](https://github.com/zorgnax/les/wiki/screenshot.png)
+
 Options
 =======
 
