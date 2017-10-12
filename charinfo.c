@@ -323,7 +323,7 @@ void get_escape_len (charinfo_t *cinfo, const char *buf, int i) {
         if (c == '[' || c == ';' || (c >= '0' && c <= '9')) {
             continue;
         }
-        else if (c == 'm') {
+        else if (c == 'm' || c == 'K') {
             cinfo->len = j + 1;
             cinfo->width = 0;
             return;
