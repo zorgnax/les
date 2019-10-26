@@ -47,11 +47,6 @@ encoding with the -e (encoding) option.
 Searching
 =========
 
-This program uses the PCRE2 library to do searches. If unfamiliar
-with the PCRE2 syntax, you can read all about it at
-http://www.pcre.org/current/doc/html/pcre2syntax.html or the longer
-document at http://www.pcre.org/current/doc/html/pcre2pattern.html.
-
 When you search, all matches will be highlighted in blue, the one
 you are up to in green. If the match is on the page you are currently
 viewing the page will not move. If it is less than a page away,

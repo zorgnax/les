@@ -1,14 +1,14 @@
 #include "les.h"
+#include "rx.h"
 #include <ctype.h>
 #include <term.h>
 #include <errno.h>
 #include <string.h>
-
-#define PCRE2_CODE_UNIT_WIDTH 8
-#include <pcre2.h>
+#include <stdlib.h>
 
 prompt_t *spr = NULL;
-pcre2_code *re = NULL;
+rx_t *rx = NULL;
+matcher_t *m = NULL;
 int active_search = 0;
 int search_version = 0;
 
@@ -96,31 +96,13 @@ void find_matches () {
     tabb->search_version = search_version;
     tabb->matches_len = 0;
     tabb->current_match = 0;
-    if (!re) {
-        return;
-    }
     active_search = 1;
 
-    pcre2_match_data *mdata = pcre2_match_data_create_from_pattern(re, NULL);
-    PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(mdata);
     int i = 0;
-
     while (i < tabb->buf_len) {
-        int retval = pcre2_match(
-            re,
-            (PCRE2_SPTR) tabb->buf,
-            tabb->buf_len,
-            i,
-            0,
-            mdata,
-            NULL
-        );
-        if (retval == PCRE2_ERROR_NOMATCH) {
+        rx_match(rx, m, tabb->buf_len, tabb->buf, i);
+        if (!m->success) {
             break;
-        }
-        else if (retval <= 0) {
-            alert("Match error %d", retval);
-            goto end;
         }
         if (tabb->matches_len + 1 > tabb->matches_size) {
             if (!tabb->matches_size) {
@@ -133,10 +115,10 @@ void find_matches () {
             }
         }
         tabb->matches_len++;
-        tabb->matches[tabb->matches_len - 1].start = ovector[0];
-        tabb->matches[tabb->matches_len - 1].end = ovector[1];
-        i = ovector[1];
-        if (i == ovector[0]) {
+        tabb->matches[tabb->matches_len - 1].start = m->cap_start[0];
+        tabb->matches[tabb->matches_len - 1].end = m->cap_end[0];
+        i = m->cap_end[0];
+        if (m->cap_size[0] == 0) {
             i += UTF8_LENGTH(tabb->buf[i]);
         }
     }
@@ -149,7 +131,6 @@ void find_matches () {
     move_to_match();
 
     end:
-    pcre2_match_data_free(mdata);
     draw_tab();
 }
 
@@ -211,10 +192,6 @@ void save_search_history () {
 }
 
 void search2 (char *pattern) {
-    if (re) {
-        pcre2_code_free(re);
-    }
-    re = NULL;
     active_search = 0;
     search_version++;
     tabb->search_version = search_version;
@@ -225,24 +202,16 @@ void search2 (char *pattern) {
         return;
     }
 
-    static char buf[256];
-    int retval = 0;
-    PCRE2_SIZE offset = 0;
-    re = pcre2_compile(
-        (PCRE2_SPTR) pattern,
-        PCRE2_ZERO_TERMINATED,
-        PCRE2_MULTILINE|PCRE2_DOTALL|PCRE2_CASELESS,
-        &retval,
-        &offset,
-        NULL
-    );
-
-    if (!re) {
-        pcre2_get_error_message(retval, (PCRE2_UCHAR *) buf, sizeof buf);
-        buf[0] = toupper(buf[0]);
-        alert(buf);
+    if (!rx) {
+        rx = rx_alloc();
+        m = rx_matcher_alloc();
+    }
+    rx_init(rx, strlen(pattern), pattern);
+    if (rx->error) {
+        alert(rx->errorstr);
         return;
     }
+
     find_matches();
 }
 

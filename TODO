@@ -1,0 +1,2 @@
+Paste into the search prompt doesn't work
+Remove ansi escapes from buffer, so search can work when the search insersects with ansi escapes

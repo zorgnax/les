@@ -10,25 +10,3 @@ prefix option to the configure script:
     make
     sudo make install
 
-You may need to install the PCRE2 library if you don't already have it:
-
-    wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
-    tar xvf pcre2-10.23.tar.gz
-    cd pcre2-10.23
-    ./configure --prefix=/usr
-    make
-    sudo make install
-
-On Ubuntu, I couldn't find PCRE2 in the "apt install" command. At
-least for the version of Ubuntu I was running, so you will have to
-install PCRE2 from source. I also had to run this before I could
-compile it:
-
-    sudo apt install libncurses5-dev
-    sudo ldconfig
-
-On CentOS, I had to run:
-
-    sudo yum install ncurses-devel
-    sudo /sbin/ldconfig
-
