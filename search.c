@@ -191,7 +191,7 @@ void save_search_history () {
     fclose(fp);
 }
 
-void clear_matches() {
+void clear_matches () {
   tabb->matches = NULL;
   tabb->matches_len = 0;
   tabb->matches_size = 0;

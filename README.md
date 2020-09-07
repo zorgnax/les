@@ -165,6 +165,7 @@ Key Binds
     U,⇞           go up a screen
     w             toggle line wrap
     /             search
+    c             clear search matches
     F1            view help
     F2            view recently opened files
 

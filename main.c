@@ -147,6 +147,7 @@ char *usage_text () {
         "    U,⇞           go up a screen\n"
         "    w             toggle line wrap\n"
         "    /             search\n"
+        "    c             clear search matches\n"
         "    F1            view help\n"
         "    F2            view recently opened files\n";
     return str;
