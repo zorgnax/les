@@ -312,6 +312,9 @@ int read_key (char *buf, int len) {
         case '/':
             search();
             break;
+        case 'c':
+            clear_matches();
+            break;
         case -0x40 + 'D':
             move_forward(10000);
             break;

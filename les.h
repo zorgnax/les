@@ -227,6 +227,7 @@ void next_match ();
 void prev_match ();
 void load_search_history ();
 void save_search_history ();
+void clear_matches ();
 
 #endif
 
