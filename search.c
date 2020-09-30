@@ -191,6 +191,18 @@ void save_search_history () {
     fclose(fp);
 }
 
+void clear_matches () {
+  tabb->matches = NULL;
+  tabb->matches_len = 0;
+  tabb->matches_size = 0;
+  tabb->current_match = 0;
+  tabb->highlights = NULL;
+  tabb->highlights_len = 0;
+  tabb->highlights_size = 0;
+  tabb->highlights_processed = 0;
+  draw_tab();
+}
+
 void search2 (char *pattern) {
     active_search = 0;
     search_version++;

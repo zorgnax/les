@@ -147,6 +147,7 @@ char *usage_text () {
         "    U,⇞           go up a screen\n"
         "    w             toggle line wrap\n"
         "    /             search\n"
+        "    c             clear search matches\n"
         "    F1            view help\n"
         "    F2            view recently opened files\n";
     return str;
@@ -311,6 +312,9 @@ int read_key (char *buf, int len) {
             break;
         case '/':
             search();
+            break;
+        case 'c':
+            clear_matches();
             break;
         case -0x40 + 'D':
             move_forward(10000);
