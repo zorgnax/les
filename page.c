@@ -67,7 +67,7 @@ void stage_status () {
         status->right, status->right_size,
         "%.*s%.*s %d/%d %s",
         (int) status->tty_len, status->tty,
-    (int) status->matches_len, status->matches,
+        (int) status->matches_len, status->matches,
         tabb->line, tabb->nlines, hrsize);
     status->right_width = strnwidth(status->right, status->right_len);
 
