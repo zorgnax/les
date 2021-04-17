@@ -152,8 +152,8 @@ void change_tab () {
     open_tab_file();
     if (tabb->search_version != search_version) {
         tabb->matches_len = 0;
-	// Can't search here since the buffer might not be loaded
-	// yet, best wait till user presses n.
+    // Can't search here since the buffer might not be loaded
+    // yet, best wait till user presses n.
     }
     stage_tabs();
 }

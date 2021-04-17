@@ -110,8 +110,8 @@ void get_wrap_tlines (char *buf, size_t len, size_t pos, int max, tline_t **tlin
             continue;
         }
 
-	// wouldn't fit on a line by itself, so display as much as
-	// you can on this line, then more on the next line
+    // wouldn't fit on a line by itself, so display as much as
+    // you can on this line, then more on the next line
         for (k = 0; k < j - i;) {
             get_char_info(&cinfo2, buf, i + k);
             if (column + cinfo2.width > columns) {

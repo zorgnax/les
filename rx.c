@@ -644,7 +644,7 @@ int rx_init (rx_t *rx, int regexp_size, char *regexp) {
 int rx_init_start (rx_t *rx, int regexp_size, char *regexp, node_t *start, int value) {
     rx->regexp_size = regexp_size;
     rx->regexp = regexp;
-    
+
     node_t *node = start;
     node_t *atom_start = NULL;
     node_t *or_end = NULL;
@@ -794,7 +794,7 @@ int rx_init_start (rx_t *rx, int regexp_size, char *regexp, node_t *start, int v
             node_t *sg_end = node;
             int i = 0;
             if (qval.min == 0) {
-                sg_start = rx_node_create(rx);    
+                sg_start = rx_node_create(rx);
                 *sg_start = *atom_start;
                 atom_start->type = EMPTY;
                 atom_start->next = NULL;
@@ -805,7 +805,7 @@ int rx_init_start (rx_t *rx, int regexp_size, char *regexp, node_t *start, int v
                     node = copy_subgraph(rx, sg_start, sg_end, node);
                 }
             }
-            
+
             node_t *sg_start2, *sg_end2;
             if (qval.max == -1) {
                 if (i == 0) {
@@ -815,7 +815,7 @@ int rx_init_start (rx_t *rx, int regexp_size, char *regexp, node_t *start, int v
                     sg_start2 = rx_node_create(rx);
                     sg_end2 = copy_subgraph(rx, sg_start, sg_end, sg_start2);
                 }
-                
+
                 node_t *node2 = rx_node_create(rx);
                 node->type = BRANCH;
                 sg_end2->type = BRANCH;
