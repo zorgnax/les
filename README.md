@@ -9,6 +9,13 @@ Screenshot
 
 ![Screenshot](https://github.com/zorgnax/les/wiki/screenshot.png)
 
+Installation
+============
+
+    git clone git@github.com:zorgnax/les.git
+    cd les
+    sudo make install
+
 Options
 =======
 
