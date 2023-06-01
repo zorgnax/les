@@ -1,4 +1,5 @@
-CC = gcc
+CC = cc
+LDFLAGS := -liconv $(LDFLAGS)
 CFLAGS =
 LDLIBS = -lncurses
 include defines.mk
