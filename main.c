@@ -60,7 +60,7 @@ void set_tcattr () {
 
 void sigchld () {
     int status;
-    int cpid = wait3(&status, WNOHANG, NULL);
+    int cpid = waitpid(-1, &status, WNOHANG);
 }
 
 void sigtstp () {

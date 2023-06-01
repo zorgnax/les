@@ -20,7 +20,8 @@ hash_t *hash_init (hash_func_t *hash_func, equal_func_t *equal_func) {
 }
 
 unsigned int hash_direct_hash (void *key) {
-    return (unsigned int) key;
+    unsigned int *hash = (unsigned int*) key;
+    return (*hash);
 }
 
 int hash_direct_equal (void *key1, void *key2) {
