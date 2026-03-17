@@ -18,6 +18,8 @@ int tty;
 struct termios tcattr1, tcattr2;
 int line1;
 int tab_width = 4;
+int step = 0;
+int default_step = 1;
 int interrupt = 0;
 int load_forever = 0;
 int man_page = 0;
@@ -60,7 +62,7 @@ void set_tcattr () {
 
 void sigchld () {
     int status;
-    int cpid = wait3(&status, WNOHANG, NULL);
+    int cpid = wait4(-1, &status, WNOHANG, NULL);
 }
 
 void sigtstp () {
@@ -89,6 +91,8 @@ void sigwinch () {
     ioctl(tty, TIOCGWINSZ, &w);
     lines = w.ws_row;
     columns = w.ws_col;
+    if (default_step)
+        step = columns / 3;
     if (pr) {
         draw_prompt();
     }
@@ -112,9 +116,10 @@ void restore_mark () {
 
 char *usage_text () {
     static char *str =
-        "Usage: les [-fhmw] [-e=encoding] [-p=script] [-t=width] file...\n"
+        "Usage: les [-fhmw] [-#=step] [-e=encoding] [-p=script] [-t=width] file...\n"
         "\n"
         "Options:\n"
+        "    -#=step     horizontal scroll step (default columns/3)\n"
         "    -e=encoding   input file encoding\n"
         "    -f            load forever\n"
         "    -h            help\n"
@@ -241,7 +246,7 @@ int read_key (char *buf, int len) {
             move_end();
             break;
         case 'h':
-            move_left(columns / 3);
+            move_left(step);
             break;
         case 'H':
             move_line_left();
@@ -259,7 +264,7 @@ int read_key (char *buf, int len) {
             move_backward(2);
             break;
         case 'l':
-            move_right(columns / 3);
+            move_right(step);
             break;
         case 'L':
             move_line_right();
@@ -345,13 +350,13 @@ int read_key (char *buf, int len) {
         move_backward(1);
     }
     else if (strncmp(buf, "\eOD", 3) == 0) { // left
-        move_left(columns / 3);
+        move_left(step);
     }
     else if (strncmp(buf, "\eb", 2) == 0) { // alt-left
         move_line_left();
     }
     else if (strncmp(buf, "\eOC", 3) == 0) { // right
-        move_right(columns / 3);
+        move_right(step);
     }
     else if (strncmp(buf, "\ef", 2) == 0) { // alt-right
         move_line_right();
@@ -430,8 +435,13 @@ void read_loop () {
     }
 }
 
+void setup_defaults() {
+    step = columns / 3;
+}
+
 void parse_args (int argc, char **argv) {
     struct option longopts[] = {
+        {"#", required_argument, NULL, '#'},
         {"e", required_argument, NULL, 'e'},
         {"f", no_argument, NULL, 'f'},
         {"h", no_argument, NULL, 'h'},
@@ -445,6 +455,10 @@ void parse_args (int argc, char **argv) {
     int c;
     while ((c = getopt_long_only(argc, argv, "", longopts, NULL)) != -1) {
         switch (c) {
+        case '#':
+            step = atoi(optarg);
+            default_step = 0;
+            break;
         case 'e':
             set_input_encoding(optarg);
             break;
@@ -508,6 +522,7 @@ int main (int argc, char **argv) {
         add_tab("stdin", 0, OPENED|SPECIAL);
     }
 
+    setup_defaults();
     parse_args(argc, argv);
     tabb = tabs[0];
     open_tab_file();
